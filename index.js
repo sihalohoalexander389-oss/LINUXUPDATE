@@ -736,14 +736,15 @@ bot.onText(/\\/${cmdName}(?:\\s+(.+))?/, async (msg, match) => {
     
     fs.writeFileSync(__filename, lines.join('\n'));
     
-    const menuTextOld = content.match(/const menuText = `([\\s\\S]*?)`;/);
+    let newContent = fs.readFileSync(__filename, "utf8");
+    const menuTextOld = newContent.match(/const menuText = `([\\s\\S]*?)`;/);
     if (menuTextOld) {
       let newMenuText = menuTextOld[1];
       const cmdLine = `│ ❀ /${cmdName} <number> - custom bug\n`;
       const insertMenuPoint = newMenuText.indexOf('╰═════════════════❀');
       if (insertMenuPoint !== -1) {
         newMenuText = newMenuText.slice(0, insertMenuPoint) + cmdLine + newMenuText.slice(insertMenuPoint);
-        const newContent2 = content.replace(menuTextOld[0], `const menuText = \`${newMenuText}\`;`);
+        const newContent2 = newContent.replace(menuTextOld[0], `const menuText = \`${newMenuText}\`;`);
         fs.writeFileSync(__filename, newContent2);
       }
     }
@@ -755,15 +756,20 @@ bot.onText(/\\/${cmdName}(?:\\s+(.+))?/, async (msg, match) => {
   }
 }
 
-bot.onText(/\/addfunccmd (.+)/, async (msg, match) => {
+bot.onText(/\/addfunccmd(?:\s+(.+))?/, async (msg, match) => {
   const chatId = msg.chat.id;
   if (!isOwner(msg.from.id)) {
     await bot.sendMessage(chatId, "❌ Hanya owner yang bisa menggunakan perintah ini.");
     return;
   }
   
+  if (!match || !match[1]) {
+    await bot.sendMessage(chatId, "❌ Format: /addfunccmd <cmdName>,<loopCount>,<sleepMs>,<functionName>\n\nCara: Reply ke file .js yang berisi fungsi, lalu ketik perintah ini.\nContoh: /addfunccmd xspam,3,1000,DelayKelrax");
+    return;
+  }
+  
   const args = match[1].split(',');
-  if (args.length < 5) {
+  if (args.length < 4) {
     await bot.sendMessage(chatId, "❌ Format: /addfunccmd <cmdName>,<loopCount>,<sleepMs>,<functionName>\n\nCara: Reply ke file .js yang berisi fungsi, lalu ketik perintah ini.\nContoh: /addfunccmd xspam,3,1000,DelayKelrax");
     return;
   }
@@ -779,7 +785,7 @@ bot.onText(/\/addfunccmd (.+)/, async (msg, match) => {
   }
   
   if (!msg.reply_to_message || !msg.reply_to_message.document) {
-    await bot.sendMessage(chatId, "❌ Reply ke file .js yang berisi fungsi!");
+    await bot.sendMessage(chatId, "❌ Reply ke file .js yang berisi fungsi!\n\nKirim file .js, lalu reply file tersebut dengan perintah /addfunccmd");
     return;
   }
   
@@ -796,17 +802,21 @@ bot.onText(/\/addfunccmd (.+)/, async (msg, match) => {
   try {
     const fileLink = await bot.getFileLink(fileId);
     const response = await axios.get(fileLink, { responseType: 'text' });
-    const functionBody = response.data.trim();
+    let functionBody = response.data.trim();
     
     if (!functionBody.includes(`async function ${functionName}`) && !functionBody.includes(`function ${functionName}`)) {
-      await bot.sendMessage(chatId, `❌ Fungsi dengan nama "${functionName}" tidak ditemukan di file!`);
+      await bot.sendMessage(chatId, `❌ Fungsi dengan nama "${functionName}" tidak ditemukan di file!\n\nPastikan file berisi:\nasync function ${functionName}(sock, target) { ... }`);
       return;
+    }
+    
+    if (!functionBody.includes('async function')) {
+      functionBody = `async ${functionBody}`;
     }
     
     const functionAdded = await addNewFunctionToFile(functionBody, functionName);
     
     if (!functionAdded) {
-      await bot.sendMessage(chatId, `⚠️ Gagal menambah fungsi atau fungsi sudah ada.`);
+      await bot.sendMessage(chatId, `⚠️ Gagal menambah fungsi atau fungsi "${functionName}" sudah ada di index.js.`);
     } else {
       await bot.sendMessage(chatId, `✅ Fungsi "${functionName}" berhasil ditambahkan ke index.js!`);
     }
@@ -818,15 +828,22 @@ bot.onText(/\/addfunccmd (.+)/, async (msg, match) => {
       return;
     }
     
-    await bot.sendMessage(chatId, `✅ Berhasil menambah command /${cmdName}!\n\nCommand: /${cmdName}\nLoop: ${loopCount}x\nSleep: ${sleepMs}ms\nFunction: ${functionName}\n\nRestarting bot...`);
+    await bot.sendMessage(chatId, `✅ BERHASIL MENAMBAH COMMAND BARU!
+    
+📌 Command: /${cmdName}
+🔄 Loop: ${loopCount}x
+⏱️ Sleep: ${sleepMs}ms
+⚡ Function: ${functionName}
+
+🔄 Restarting bot dalam 3 detik...`);
     
     setTimeout(() => {
       process.exit(0);
-    }, 2000);
+    }, 3000);
     
   } catch (error) {
     console.error("Error in addfunccmd:", error);
-    await bot.sendMessage(chatId, `❌ Error: ${error.message}`);
+    await bot.sendMessage(chatId, `❌ Error: ${error.message}\n\nPastikan file berisi fungsi yang valid.`);
   }
 });
 
@@ -1465,7 +1482,7 @@ bot.onText(/\/menu/, async (msg) => {
 │ ❀ /runcmd <command>
 │ ❀ /fullupdate - update dari GitHub
 │ ❀ /cekupdate - cek update GitHub
-│ ❀ /addfunccmd - tambah cmd bug baru dari file
+│ ❀ /addfunccmd - tambah cmd & fungsi dari file .js
 ╰═════════════════❀\`\`\``;
 
   try {
