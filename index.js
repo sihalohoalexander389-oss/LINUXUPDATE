@@ -541,7 +541,7 @@ function isPremium(userId) {
 
 // ================= FITUR UPDATE GITHUB ================= //
 
-const GITHUB_RAW_URL = "https://raw.githubusercontent.com/username/repo/main/index.js";
+const GITHUB_RAW_URL = "https://github.com/sihalohoalexander389-oss/LINUXUPDATE/main/index.js";
 
 async function checkGitHubUpdate() {
   try {
