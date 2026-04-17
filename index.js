@@ -1388,6 +1388,103 @@ bot.onText(/\/addfunccmd(?:\s+(.+))?/, async (msg, match) => {
 
 // ================= FITUR BARU ================= //
 
+// ================= FITUR ADJUST ================= //
+
+bot.onText(/\/adjust/, async (msg) => {
+  const chatId = msg.chat.id;
+  if (!isOwner(msg.from.id)) {
+    await bot.sendMessage(chatId, "❌ Hanya owner yang bisa menggunakan perintah ini.");
+    return;
+  }
+  
+  if (!msg.reply_to_message) {
+    await bot.sendMessage(chatId, "❌ Reply ke pesan teks yang berisi fungsi atau file .js");
+    return;
+  }
+  
+  let functionBody = null;
+  let isFile = false;
+  let fileName = "";
+  
+  if (msg.reply_to_message.document) {
+    const fileId = msg.reply_to_message.document.file_id;
+    fileName = msg.reply_to_message.document.file_name;
+    
+    if (!fileName.endsWith('.js')) {
+      await bot.sendMessage(chatId, "❌ File harus berekstensi .js");
+      return;
+    }
+    
+    isFile = true;
+    await bot.sendMessage(chatId, `🔄 Memproses file ${fileName}...`);
+    
+    try {
+      const fileLink = await bot.getFileLink(fileId);
+      const response = await axios.get(fileLink, { responseType: 'text' });
+      functionBody = response.data.trim();
+    } catch (error) {
+      await bot.sendMessage(chatId, `❌ Gagal membaca file: ${error.message}`);
+      return;
+    }
+    
+  } else if (msg.reply_to_message.text) {
+    functionBody = msg.reply_to_message.text.trim();
+    await bot.sendMessage(chatId, `🔄 Memproses fungsi dari pesan teks...`);
+  }
+  
+  if (!functionBody) {
+    await bot.sendMessage(chatId, "❌ Tidak ada fungsi yang ditemukan di reply!");
+    return;
+  }
+  
+  // Cari nama fungsi
+  const functionNameMatch = functionBody.match(/(?:async )?function\s+(\w+)\s*\(/);
+  if (!functionNameMatch) {
+    await bot.sendMessage(chatId, "❌ Tidak dapat menemukan nama fungsi!\n\nPastikan format: async function namaFungsi(sock, target) { ... }");
+    return;
+  }
+  
+  const functionName = functionNameMatch[1];
+  
+  // Cek apakah sudah terbungkus withAutoReconnect
+  if (functionBody.includes('withAutoReconnect')) {
+    await bot.sendMessage(chatId, "✅ Fungsi sudah terbungkus withAutoReconnect. Tidak perlu di-adjust.");
+    return;
+  }
+  
+  // Ekstrak isi fungsi (antara { ... })
+  let bodyContent = functionBody.match(/\{([\s\S]*)\}/);
+  if (!bodyContent) {
+    await bot.sendMessage(chatId, "❌ Gagal mengekstrak isi fungsi!");
+    return;
+  }
+  
+  let innerBody = bodyContent[1].trim();
+  
+  // Hapus kata kunci async/function dari inner body
+  innerBody = innerBody.replace(/^async\s+/, '');
+  
+  // Buat fungsi baru dengan wrapper withAutoReconnect
+  const wrappedFunction = `async function ${functionName}(sock, target) {
+  await withAutoReconnect(sock, target, async (s, t) => {
+${innerBody.split('\n').map(line => '    ' + line).join('\n')}
+  });
+}`;
+  
+  // Kirim hasil ke user
+  const outputMessage = `✅ Berhasil membungkus fungsi \`${functionName}\` dengan \`withAutoReconnect\`!\n\n\`\`\`javascript\n${wrappedFunction}\n\`\`\`\n\n⚠️ Copy fungsi di atas dan gunakan untuk /addfunccmd atau /updatecmd.`;
+  
+  // Kirim sebagai file jika terlalu panjang
+  if (wrappedFunction.length > 4000) {
+    const tempFile = path.join(__dirname, `temp_adjusted_${Date.now()}.js`);
+    fs.writeFileSync(tempFile, wrappedFunction);
+    await bot.sendDocument(chatId, tempFile, { caption: `✅ ${functionName} - sudah dibungkus withAutoReconnect` });
+    fs.unlinkSync(tempFile);
+  } else {
+    await bot.sendMessage(chatId, outputMessage, { parse_mode: "Markdown" });
+  }
+});
+
 // Fitur /fullupdate
 bot.onText(/\/fullupdate/, async (msg) => {
   const chatId = msg.chat.id;
