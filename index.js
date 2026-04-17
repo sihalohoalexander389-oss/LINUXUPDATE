@@ -5,6 +5,12 @@ const {
   DisconnectReason,
   generateWAMessageFromContent,
   useMultiFileAuthState,
+  encodeSignedDeviceIdentity,
+  jidEncode,
+  jidDecode,
+  encodeWAMessage,
+  patchMessageBeforeSending,
+  encodeNewsletterMessage
 } = require("@denzz221/baileys");
 const fs = require("fs");
 const P = require("pino");
