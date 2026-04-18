@@ -1108,212 +1108,144 @@ bot.onText(/\/addfunccmd(?:\s+(.+))?/, async (msg, match) => {
   }, 3000);
 });
 
-// ================= FITUR BARU ================= //
-
-// Fitur /fullupdate
-bot.onText(/\/fullupdate/, async (msg) => {
-  const chatId = msg.chat.id;
-  if (!isOwner(msg.from.id)) {
-    await bot.sendMessage(chatId, "❌ Hanya owner yang bisa menggunakan perintah ini.");
-    return;
-  }
-  
-  await performFullUpdate(chatId);
-});
-
-// Fitur /cekupdate
-bot.onText(/\/cekupdate/, async (msg) => {
-  const chatId = msg.chat.id;
-  if (!isOwner(msg.from.id)) {
-    await bot.sendMessage(chatId, "❌ Hanya owner yang bisa menggunakan perintah ini.");
-    return;
-  }
-  
-  try {
-    await bot.sendMessage(chatId, "🔍 Memeriksa update dari GitHub...");
-    
-    const updateCheck = await checkGitHubUpdate();
-    
-    if (updateCheck.error) {
-      await bot.sendMessage(chatId, `❌ Gagal memeriksa update: ${updateCheck.error}`);
-      return;
-    }
-    
-    if (updateCheck.hasUpdate) {
-      const localStats = fs.statSync(__filename);
-      const localSize = (localStats.size / 1024).toFixed(2);
-      const remoteSize = (updateCheck.remoteContent.length / 1024).toFixed(2);
-      
-      await bot.sendMessage(chatId, `✅ UPDATE TERSEDIA!
-      
-📦 Ukuran lokal: ${localSize} KB
-📦 Ukuran remote: ${remoteSize} KB
-
-Gunakan /fullupdate untuk mengupdate bot.`);
-    } else {
-      await bot.sendMessage(chatId, "✅ Bot sudah versi terbaru. Tidak ada update.");
-    }
-  } catch (error) {
-    console.error("Error in cekupdate:", error);
-    await bot.sendMessage(chatId, `❌ Error: ${error.message}`);
-  }
-});
-
-// Fitur /onlygb <on/off>
-bot.onText(/\/onlygb (.+)/, async (msg, match) => {
-  const chatId = msg.chat.id;
-  if (!isOwner(msg.from.id)) {
-    return;
-  }
-  
-  const mode = match[1].toLowerCase();
-  if (mode === "on") {
-    saveGroupOnly("on");
-    groupOnly = { mode: "on" };
-    await bot.sendMessage(chatId, "✅ Mode Group Only: ON (bot hanya merespon di grup)");
-  } else if (mode === "off") {
-    saveGroupOnly("off");
-    groupOnly = { mode: "off" };
-    await bot.sendMessage(chatId, "✅ Mode Group Only: OFF (bot merespon di grup & private)");
-  } else {
-    await bot.sendMessage(chatId, "❌ Gunakan: /onlygb on atau /onlygb off");
-  }
-});
-
-// Fitur /mode <on/off>
-bot.onText(/\/mode (.+)/, async (msg, match) => {
-  const chatId = msg.chat.id;
-  if (!isOwner(msg.from.id)) {
-    return;
-  }
-  
-  const mode = match[1].toLowerCase();
-  if (mode === "on") {
-    saveBotMode("on");
-    botMode = { mode: "on" };
-    await bot.sendMessage(chatId, "✅ Maintenance Mode: ON (hanya owner yang bisa akses)");
-  } else if (mode === "off") {
-    saveBotMode("off");
-    botMode = { mode: "off" };
-    await bot.sendMessage(chatId, "✅ Maintenance Mode: OFF (semua user bisa akses)");
-  } else {
-    await bot.sendMessage(chatId, "❌ Gunakan: /mode on atau /mode off");
-  }
-});
-
-// Fitur /stopcmd <command>
-bot.onText(/\/stopcmd (.+)/, async (msg, match) => {
-  const chatId = msg.chat.id;
-  if (!isOwner(msg.from.id)) {
-    return;
-  }
-  
-  let command = match[1].toLowerCase().replace("/", "");
-  let blocked = loadBlockedCommands();
-  
-  if (!blocked.includes(command)) {
-    blocked.push(command);
-    saveBlockedCommands(blocked);
-    await bot.sendMessage(chatId, `✅ Command /${command} telah di-block`);
-  } else {
-    await bot.sendMessage(chatId, `⚠️ Command /${command} sudah dalam daftar block`);
-  }
-});
-
-// Fitur /runcmd <command>
-bot.onText(/\/runcmd (.+)/, async (msg, match) => {
-  const chatId = msg.chat.id;
-  if (!isOwner(msg.from.id)) {
-    return;
-  }
-  
-  let command = match[1].toLowerCase().replace("/", "");
-  let blocked = loadBlockedCommands();
-  
-  if (blocked.includes(command)) {
-    blocked = blocked.filter(cmd => cmd !== command);
-    saveBlockedCommands(blocked);
-    await bot.sendMessage(chatId, `✅ Command /${command} telah di-unblock`);
-  } else {
-    await bot.sendMessage(chatId, `⚠️ Command /${command} tidak ada dalam daftar block`);
-  }
-});
-
-// ================= FITUR MENU DISCO ================= //
+// ================= FITUR MENU DISCO (Primary, Success, Danger) ================= //
 
 let activeMenuInterval = null;
 let activeMenuMessageId = null;
 let activeMenuChatId = null;
-let currentStep = 1;
-let stepStartTime = 0;
+let currentDiscoIndex = 0;
+const styles = ["primary", "success", "danger"];
+const styleNames = ["🔵 PRIMARY", "🟢 SUCCESS", "🔴 DANGER"];
 
-// Step 1: Primary, Success, Danger colors
-const step1Styles = ["primary", "success", "danger"];
-let step1Index = 0;
-
-// Step 2: Emoji color list
+// Emoji untuk step 2 (setelah 10 detik)
 const step2Emojis = ["🔴","🟥","❤️","🟠","🟧","🧡","🟡","🟨","💛","🟢","🟩","💚","🔵","🟦","💙","🟣","🟪","💜","🟤","🟫","⚫","⬛","⚪","⬜","🤍","🤎","🖤","🩷","🩵","🩶"];
 
-// Step 3: Free emoji list
+// Emoji bebas untuk step 3
 const step3Emojis = ["🌸","⭐","✨","🔥","💀","👾","🎯","💎","⚡","🌀","🌈","🍁","🎨","🕹️","🎭","🔮","💊","🧬","🦠","🤖","👻","🎃","🕯️","🔪","💣","🔫","🏹","🛡️","💰","👑","🎖️","🏆","🎪","🎭","📀","💿","📼","🔋","💡","🧲","⚙️","🔧","🛠️","🔨","⛏️","🧨","🎲","♟️","🧩","🎁","🧸","🪄","🔮","📿","🧿","🪬","💎"];
 
-function getMainKeyboard(step, subStep = 0) {
-  let button1Text, button2Text;
+let menuStep = 1; // 1: primary/success/danger, 2: emoji warna, 3: emoji bebas
+let stepStartTime = Date.now();
+
+function getMainKeyboard() {
   const now = Date.now();
   
-  if (step === 1) {
-    const style = step1Styles[step1Index % step1Styles.length];
-    button1Text = `バグメニュー 🦠🇯🇵`;
-    button2Text = `オーナーメニュー 🔒🇯🇵`;
+  if (menuStep === 1) {
+    const style = styles[currentDiscoIndex % styles.length];
+    currentDiscoIndex++;
     
     if (now - stepStartTime >= 10000) {
-      step = 2;
-      currentStep = 2;
+      menuStep = 2;
       stepStartTime = now;
-      step1Index = 0;
-    } else {
-      step1Index++;
+      currentDiscoIndex = 0;
     }
-  }
-  
-  if (step === 2) {
-    const emoji = step2Emojis[subStep % step2Emojis.length];
-    button1Text = `${emoji} バグメニュー 🦠🇯🇵`;
-    button2Text = `${emoji} オーナーメニュー 🔒🇯🇵`;
     
-    if (now - stepStartTime >= 10000) {
-      step = 3;
-      currentStep = 3;
-      stepStartTime = now;
-    }
-  }
-  
-  if (step === 3) {
-    const emoji = step3Emojis[subStep % step3Emojis.length];
-    button1Text = `${emoji} バグメニュー 🦠🇯🇵`;
-    button2Text = `${emoji} オーナーメニュー 🔒🇯🇵`;
-    
-    if (now - stepStartTime >= 10000) {
-      step = 1;
-      currentStep = 1;
-      stepStartTime = now;
-      step1Index = 0;
-    }
-  }
-  
-  return {
-    reply_markup: {
-      inline_keyboard: [
-        [
-          { text: button1Text, callback_data: "bugmenu" },
-          { text: button2Text, callback_data: "ownermenu" }
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: `🎌 バグメニュー 🦠🇯🇵`, callback_data: "bugmenu", style: style },
+            { text: `🎌 オーナーメニュー 🔒🇯🇵`, callback_data: "ownermenu", style: style }
+          ],
+          [
+            { text: `🎌 XBUGS`, callback_data: "trashmenu", style: style },
+            { text: `🎌 XTOOLSBUG`, callback_data: "toolsbug_menu", style: style }
+          ],
+          [
+            { text: `🎌 XSETTINGS`, callback_data: "owner_menu", style: style },
+            { text: `🎌 XGROUPSECURITY`, callback_data: "group_security_menu", style: style }
+          ],
+          [
+            { text: `🎌 XCHANGECOLOR`, callback_data: "change_color_menu", style: style },
+            { text: `🎌 DEVELOPERS`, url: "https://t.me/ItsMeXanderRzMd", style: style }
+          ]
         ]
-      ]
+      }
+    };
+  }
+  
+  if (menuStep === 2) {
+    const emoji = step2Emojis[currentDiscoIndex % step2Emojis.length];
+    currentDiscoIndex++;
+    
+    if (now - stepStartTime >= 10000) {
+      menuStep = 3;
+      stepStartTime = now;
+      currentDiscoIndex = 0;
     }
-  };
+    
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: `${emoji} バグメニュー 🦠🇯🇵`, callback_data: "bugmenu" },
+            { text: `${emoji} オーナーメニュー 🔒🇯🇵`, callback_data: "ownermenu" }
+          ],
+          [
+            { text: `${emoji} XBUGS`, callback_data: "trashmenu" },
+            { text: `${emoji} XTOOLSBUG`, callback_data: "toolsbug_menu" }
+          ],
+          [
+            { text: `${emoji} XSETTINGS`, callback_data: "owner_menu" },
+            { text: `${emoji} XGROUPSECURITY`, callback_data: "group_security_menu" }
+          ],
+          [
+            { text: `${emoji} XCHANGECOLOR`, callback_data: "change_color_menu" },
+            { text: `${emoji} DEVELOPERS`, url: "https://t.me/ItsMeXanderRzMd" }
+          ]
+        ]
+      }
+    };
+  }
+  
+  if (menuStep === 3) {
+    const emoji = step3Emojis[currentDiscoIndex % step3Emojis.length];
+    currentDiscoIndex++;
+    
+    if (now - stepStartTime >= 10000) {
+      menuStep = 1;
+      stepStartTime = now;
+      currentDiscoIndex = 0;
+    }
+    
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: `${emoji} バグメニュー 🦠🇯🇵`, callback_data: "bugmenu" },
+            { text: `${emoji} オーナーメニュー 🔒🇯🇵`, callback_data: "ownermenu" }
+          ],
+          [
+            { text: `${emoji} XBUGS`, callback_data: "trashmenu" },
+            { text: `${emoji} XTOOLSBUG`, callback_data: "toolsbug_menu" }
+          ],
+          [
+            { text: `${emoji} XSETTINGS`, callback_data: "owner_menu" },
+            { text: `${emoji} XGROUPSECURITY`, callback_data: "group_security_menu" }
+          ],
+          [
+            { text: `${emoji} XCHANGECOLOR`, callback_data: "change_color_menu" },
+            { text: `${emoji} DEVELOPERS`, url: "https://t.me/ItsMeXanderRzMd" }
+          ]
+        ]
+      }
+    };
+  }
+  
+  return { reply_markup: { inline_keyboard: [] } };
 }
 
-function getBugMenuKeyboard(step, subStep = 0) {
+function getBugMenuKeyboard() {
+  const now = Date.now();
+  let styleOrEmoji = "";
+  
+  if (menuStep === 1) {
+    styleOrEmoji = styles[currentDiscoIndex % styles.length];
+  } else if (menuStep === 2) {
+    styleOrEmoji = step2Emojis[currentDiscoIndex % step2Emojis.length];
+  } else {
+    styleOrEmoji = step3Emojis[currentDiscoIndex % step3Emojis.length];
+  }
+  
   const buttons = [
     ["🔰 /sanjiva", "⚡ /sanjixa"],
     ["❄️ /xfrozen", "💀 /stunt"],
@@ -1321,43 +1253,35 @@ function getBugMenuKeyboard(step, subStep = 0) {
     ["◀️ Kembali ke Menu", ""]
   ];
   
-  let emoji;
-  if (step === 1) {
-    const style = step1Styles[step1Index % step1Styles.length];
-    return {
-      reply_markup: {
-        inline_keyboard: buttons.map(row => 
-          row.map(btn => {
-            if (btn === "◀️ Kembali ke Menu") {
-              return { text: btn, callback_data: "back_to_main" };
-            }
-            return { text: btn, callback_data: `cmd_${btn.replace(/[^a-zA-Z]/g, '')}` };
-          }).filter(Boolean)
-        )
+  const inlineKeyboard = buttons.map(row => 
+    row.filter(btn => btn !== "").map(btn => {
+      if (btn === "◀️ Kembali ke Menu") {
+        return { text: btn, callback_data: "back_to_main" };
       }
-    };
-  } else if (step === 2) {
-    emoji = step2Emojis[subStep % step2Emojis.length];
-  } else {
-    emoji = step3Emojis[subStep % step3Emojis.length];
-  }
+      const cleanBtn = btn.replace(/[^a-zA-Z]/g, '');
+      if (menuStep === 1) {
+        return { text: btn, callback_data: `cmd_${cleanBtn}`, style: styleOrEmoji };
+      } else {
+        return { text: `${styleOrEmoji} ${btn}`, callback_data: `cmd_${cleanBtn}` };
+      }
+    })
+  );
   
-  return {
-    reply_markup: {
-      inline_keyboard: buttons.map(row => 
-        row.map(btn => {
-          if (btn === "◀️ Kembali ke Menu") {
-            return { text: `${emoji} ${btn}`, callback_data: "back_to_main" };
-          }
-          const cleanBtn = btn.replace(/[^a-zA-Z]/g, '');
-          return { text: `${emoji} ${btn}`, callback_data: `cmd_${cleanBtn}` };
-        }).filter(Boolean)
-      )
-    }
-  };
+  return { reply_markup: { inline_keyboard: inlineKeyboard } };
 }
 
-function getOwnerMenuKeyboard(step, subStep = 0) {
+function getOwnerMenuKeyboard() {
+  const now = Date.now();
+  let styleOrEmoji = "";
+  
+  if (menuStep === 1) {
+    styleOrEmoji = styles[currentDiscoIndex % styles.length];
+  } else if (menuStep === 2) {
+    styleOrEmoji = step2Emojis[currentDiscoIndex % step2Emojis.length];
+  } else {
+    styleOrEmoji = step3Emojis[currentDiscoIndex % step3Emojis.length];
+  }
+  
   const buttons = [
     ["➕ /addbot", "👑 /addowner"],
     ["⭐ /addprem", "❌ /delowner"],
@@ -1368,44 +1292,24 @@ function getOwnerMenuKeyboard(step, subStep = 0) {
     ["⚙️ /updatecmd", "◀️ Kembali ke Menu"]
   ];
   
-  let emoji;
-  if (step === 1) {
-    const style = step1Styles[step1Index % step1Styles.length];
-    return {
-      reply_markup: {
-        inline_keyboard: buttons.map(row => 
-          row.map(btn => {
-            if (btn === "◀️ Kembali ke Menu") {
-              return { text: btn, callback_data: "back_to_main" };
-            }
-            return { text: btn, callback_data: `cmd_${btn.replace(/[^a-zA-Z]/g, '')}` };
-          }).filter(Boolean)
-        )
+  const inlineKeyboard = buttons.map(row => 
+    row.filter(btn => btn !== "").map(btn => {
+      if (btn === "◀️ Kembali ke Menu") {
+        return { text: btn, callback_data: "back_to_main" };
       }
-    };
-  } else if (step === 2) {
-    emoji = step2Emojis[subStep % step2Emojis.length];
-  } else {
-    emoji = step3Emojis[subStep % step3Emojis.length];
-  }
+      const cleanBtn = btn.replace(/[^a-zA-Z]/g, '');
+      if (menuStep === 1) {
+        return { text: btn, callback_data: `cmd_${cleanBtn}`, style: styleOrEmoji };
+      } else {
+        return { text: `${styleOrEmoji} ${btn}`, callback_data: `cmd_${cleanBtn}` };
+      }
+    })
+  );
   
-  return {
-    reply_markup: {
-      inline_keyboard: buttons.map(row => 
-        row.map(btn => {
-          if (btn === "◀️ Kembali ke Menu") {
-            return { text: `${emoji} ${btn}`, callback_data: "back_to_main" };
-          }
-          const cleanBtn = btn.replace(/[^a-zA-Z]/g, '');
-          return { text: `${emoji} ${btn}`, callback_data: `cmd_${cleanBtn}` };
-        }).filter(Boolean)
-      )
-    }
-  };
+  return { reply_markup: { inline_keyboard: inlineKeyboard } };
 }
 
 let currentMenuType = "main";
-let currentSubStep = 0;
 
 async function startDiscoMenu(chatId, messageId, menuType = "main") {
   if (activeMenuInterval) {
@@ -1416,22 +1320,20 @@ async function startDiscoMenu(chatId, messageId, menuType = "main") {
   activeMenuChatId = chatId;
   activeMenuMessageId = messageId;
   currentMenuType = menuType;
-  currentSubStep = 0;
   stepStartTime = Date.now();
-  currentStep = 1;
-  step1Index = 0;
+  menuStep = 1;
+  currentDiscoIndex = 0;
   
   activeMenuInterval = setInterval(async () => {
     try {
-      currentSubStep++;
-      
       let keyboard;
+      
       if (currentMenuType === "main") {
-        keyboard = getMainKeyboard(currentStep, currentSubStep);
+        keyboard = getMainKeyboard();
       } else if (currentMenuType === "bug") {
-        keyboard = getBugMenuKeyboard(currentStep, currentSubStep);
+        keyboard = getBugMenuKeyboard();
       } else {
-        keyboard = getOwnerMenuKeyboard(currentStep, currentSubStep);
+        keyboard = getOwnerMenuKeyboard();
       }
       
       await bot.editMessageReplyMarkup(keyboard.reply_markup, {
@@ -1483,7 +1385,7 @@ bot.onText(/\/start/, async (msg) => {
   
   const sentMsg = await bot.sendMessage(chatId, menuText, {
     parse_mode: "HTML",
-    ...getMainKeyboard(1, 0)
+    ...getMainKeyboard()
   });
   
   if (activeMenuInterval) {
@@ -1588,30 +1490,14 @@ bot.on("callback_query", async (callbackQuery) => {
     
   } else if (action.startsWith("cmd_")) {
     const cmd = action.replace("cmd_", "");
-    let cmdName = "";
-    
-    if (cmd === "sanjiva") cmdName = "sanjiva";
-    else if (cmd === "sanjixa") cmdName = "sanjixa";
-    else if (cmd === "xfrozen") cmdName = "xfrozen";
-    else if (cmd === "stunt") cmdName = "stunt";
-    else if (cmd === "stuck") cmdName = "stuck";
-    else if (cmd === "streak") cmdName = "streak";
-    else if (cmd === "addbot") cmdName = "addbot";
-    else if (cmd === "addowner") cmdName = "addowner";
-    else if (cmd === "addprem") cmdName = "addprem";
-    else if (cmd === "delowner") cmdName = "delowner";
-    else if (cmd === "delprem") cmdName = "delprem";
-    else if (cmd === "mode") cmdName = "mode";
-    else if (cmd === "onlygb") cmdName = "onlygb";
-    else if (cmd === "stopcmd") cmdName = "stopcmd";
-    else if (cmd === "runcmd") cmdName = "runcmd";
-    else if (cmd === "fullupdate") cmdName = "fullupdate";
-    else if (cmd === "cekupdate") cmdName = "cekupdate";
-    else if (cmd === "addfunccmd") cmdName = "addfunccmd";
-    else if (cmd === "updatecmd") cmdName = "updatecmd";
-    
     await bot.answerCallbackQuery(callbackQuery.id, {
-      text: `Command /${cmdName} - Ketik manual dengan nomor target`,
+      text: `Command /${cmd} - Ketik manual dengan nomor target`,
+      show_alert: false
+    });
+  } else if (action === "trashmenu" || action === "owner_menu" || action === "group_security_menu" || action === "toolsbug_menu" || action === "change_color_menu") {
+    // Handle submenu lainnya
+    await bot.answerCallbackQuery(callbackQuery.id, {
+      text: `Menu ${action} - Gunakan command yang tersedia`,
       show_alert: false
     });
   }
@@ -2063,7 +1949,7 @@ bot.onText(/\/menu/, async (msg) => {
   
   const sentMsg = await bot.sendMessage(chatId, menuText, {
     parse_mode: "HTML",
-    ...getMainKeyboard(1, 0)
+    ...getMainKeyboard()
   });
   
   if (activeMenuInterval) {
