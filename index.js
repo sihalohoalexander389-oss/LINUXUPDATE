@@ -1244,106 +1244,170 @@ bot.onText(/\/runcmd (.+)/, async (msg, match) => {
 let activeMenuInterval = null;
 let activeMenuMessageId = null;
 let activeMenuChatId = null;
+let currentStep = 1;
+let stepStartTime = 0;
 
-const emojiList = [
-  "🔴", "🟥", "❤️", "🟠", "🟧", "🧡", "🟡", "🟨", "💛", 
-  "🟢", "🟩", "💚", "🔵", "🟦", "💙", "🟣", "🟪", "💜", 
-  "🟤", "🟫", "⚫", "⬛", "⚪", "⬜", "🤍", "🤎", "🖤", 
-  "🩷", "🩵", "🩶", "🌸", "⭐", "✨", "🔥", "💀", "👾"
-];
+// Step 1: Primary, Success, Danger colors
+const step1Styles = ["primary", "success", "danger"];
+let step1Index = 0;
 
-const bugMenuButtons = [
-  [
-    { text: "🔰 /sanjiva", callback_data: "cmd_sanjiva" },
-    { text: "⚡ /sanjixa", callback_data: "cmd_sanjixa" }
-  ],
-  [
-    { text: "❄️ /xfrozen", callback_data: "cmd_xfrozen" },
-    { text: "💀 /stunt", callback_data: "cmd_stunt" }
-  ],
-  [
-    { text: "📌 /stuck", callback_data: "cmd_stuck" },
-    { text: "🌀 /streak", callback_data: "cmd_streak" }
-  ],
-  [
-    { text: "◀️ Kembali ke Menu", callback_data: "back_to_main" }
-  ]
-];
+// Step 2: Emoji color list
+const step2Emojis = ["🔴","🟥","❤️","🟠","🟧","🧡","🟡","🟨","💛","🟢","🟩","💚","🔵","🟦","💙","🟣","🟪","💜","🟤","🟫","⚫","⬛","⚪","⬜","🤍","🤎","🖤","🩷","🩵","🩶"];
 
-const ownerMenuButtons = [
-  [
-    { text: "➕ /addbot", callback_data: "cmd_addbot" },
-    { text: "👑 /addowner", callback_data: "cmd_addowner" }
-  ],
-  [
-    { text: "⭐ /addprem", callback_data: "cmd_addprem" },
-    { text: "❌ /delowner", callback_data: "cmd_delowner" }
-  ],
-  [
-    { text: "❌ /delprem", callback_data: "cmd_delprem" },
-    { text: "🔧 /mode", callback_data: "cmd_mode" }
-  ],
-  [
-    { text: "👥 /onlygb", callback_data: "cmd_onlygb" },
-    { text: "🛑 /stopcmd", callback_data: "cmd_stopcmd" }
-  ],
-  [
-    { text: "▶️ /runcmd", callback_data: "cmd_runcmd" },
-    { text: "🔄 /fullupdate", callback_data: "cmd_fullupdate" }
-  ],
-  [
-    { text: "📡 /cekupdate", callback_data: "cmd_cekupdate" },
-    { text: "➕ /addfunccmd", callback_data: "cmd_addfunccmd" }
-  ],
-  [
-    { text: "⚙️ /updatecmd", callback_data: "cmd_updatecmd" },
-    { text: "◀️ Kembali ke Menu", callback_data: "back_to_main" }
-  ]
-];
+// Step 3: Free emoji list
+const step3Emojis = ["🌸","⭐","✨","🔥","💀","👾","🎯","💎","⚡","🌀","🌈","🍁","🎨","🕹️","🎭","🔮","💊","🧬","🦠","🤖","👻","🎃","🕯️","🔪","💣","🔫","🏹","🛡️","💰","👑","🎖️","🏆","🎪","🎭","📀","💿","📼","🔋","💡","🧲","⚙️","🔧","🛠️","🔨","⛏️","🧨","🎲","♟️","🧩","🎁","🧸","🪄","🔮","📿","🧿","🪬","💎"];
 
-function getDiscoKeyboard(buttons, step) {
-  const animatedButtons = buttons.map(row => 
-    row.map(btn => {
-      const emoji = emojiList[(step + Math.random() * emojiList.length) % emojiList.length];
-      const newText = btn.text.replace(/[🔴🟥❤️🟠🟧🧡🟡🟨💛🟢🟩💚🔵🟦💙🟣🟪💜🟤🟫⚫⬛⚪⬜🤍🤎🖤🩷🩵🩶🌸⭐✨🔥💀👾]/g, '');
-      return {
-        text: `${emoji} ${newText.trim()}`,
-        callback_data: btn.callback_data
-      };
-    })
-  );
-  return { reply_markup: { inline_keyboard: animatedButtons } };
-}
-
-function getMainDiscoKeyboard(step) {
-  const emoji1 = emojiList[step % emojiList.length];
-  const emoji2 = emojiList[(step + 5) % emojiList.length];
-  const emoji3 = emojiList[(step + 10) % emojiList.length];
-  const emoji4 = emojiList[(step + 15) % emojiList.length];
-  const emoji5 = emojiList[(step + 20) % emojiList.length];
-  const emoji6 = emojiList[(step + 25) % emojiList.length];
+function getMainKeyboard(step, subStep = 0) {
+  let button1Text, button2Text;
+  const now = Date.now();
+  
+  if (step === 1) {
+    const style = step1Styles[step1Index % step1Styles.length];
+    button1Text = `バグメニュー 🦠🇯🇵`;
+    button2Text = `オーナーメニュー 🔒🇯🇵`;
+    
+    if (now - stepStartTime >= 10000) {
+      step = 2;
+      currentStep = 2;
+      stepStartTime = now;
+      step1Index = 0;
+    } else {
+      step1Index++;
+    }
+  }
+  
+  if (step === 2) {
+    const emoji = step2Emojis[subStep % step2Emojis.length];
+    button1Text = `${emoji} バグメニュー 🦠🇯🇵`;
+    button2Text = `${emoji} オーナーメニュー 🔒🇯🇵`;
+    
+    if (now - stepStartTime >= 10000) {
+      step = 3;
+      currentStep = 3;
+      stepStartTime = now;
+    }
+  }
+  
+  if (step === 3) {
+    const emoji = step3Emojis[subStep % step3Emojis.length];
+    button1Text = `${emoji} バグメニュー 🦠🇯🇵`;
+    button2Text = `${emoji} オーナーメニュー 🔒🇯🇵`;
+    
+    if (now - stepStartTime >= 10000) {
+      step = 1;
+      currentStep = 1;
+      stepStartTime = now;
+      step1Index = 0;
+    }
+  }
   
   return {
     reply_markup: {
       inline_keyboard: [
         [
-          { text: `${emoji1} バグメニュー 🦠🇯🇵`, callback_data: "bugmenu" },
-          { text: `${emoji2} オーナーメニュー 🔒🇯🇵`, callback_data: "ownermenu" }
-        ],
-        [
-          { text: `${emoji3} /sanjiva`, callback_data: "cmd_sanjiva" },
-          { text: `${emoji4} /stunt`, callback_data: "cmd_stunt" }
-        ],
-        [
-          { text: `${emoji5} /xfrozen`, callback_data: "cmd_xfrozen" },
-          { text: `${emoji6} /stuck`, callback_data: "cmd_stuck" }
+          { text: button1Text, callback_data: "bugmenu" },
+          { text: button2Text, callback_data: "ownermenu" }
         ]
       ]
     }
   };
 }
 
-async function startDiscoMenu(chatId, messageId, isMainMenu = true, currentButtons = null, discoStep = 0) {
+function getBugMenuKeyboard(step, subStep = 0) {
+  const buttons = [
+    ["🔰 /sanjiva", "⚡ /sanjixa"],
+    ["❄️ /xfrozen", "💀 /stunt"],
+    ["📌 /stuck", "🌀 /streak"],
+    ["◀️ Kembali ke Menu", ""]
+  ];
+  
+  let emoji;
+  if (step === 1) {
+    const style = step1Styles[step1Index % step1Styles.length];
+    return {
+      reply_markup: {
+        inline_keyboard: buttons.map(row => 
+          row.map(btn => {
+            if (btn === "◀️ Kembali ke Menu") {
+              return { text: btn, callback_data: "back_to_main" };
+            }
+            return { text: btn, callback_data: `cmd_${btn.replace(/[^a-zA-Z]/g, '')}` };
+          }).filter(Boolean)
+        )
+      }
+    };
+  } else if (step === 2) {
+    emoji = step2Emojis[subStep % step2Emojis.length];
+  } else {
+    emoji = step3Emojis[subStep % step3Emojis.length];
+  }
+  
+  return {
+    reply_markup: {
+      inline_keyboard: buttons.map(row => 
+        row.map(btn => {
+          if (btn === "◀️ Kembali ke Menu") {
+            return { text: `${emoji} ${btn}`, callback_data: "back_to_main" };
+          }
+          const cleanBtn = btn.replace(/[^a-zA-Z]/g, '');
+          return { text: `${emoji} ${btn}`, callback_data: `cmd_${cleanBtn}` };
+        }).filter(Boolean)
+      )
+    }
+  };
+}
+
+function getOwnerMenuKeyboard(step, subStep = 0) {
+  const buttons = [
+    ["➕ /addbot", "👑 /addowner"],
+    ["⭐ /addprem", "❌ /delowner"],
+    ["❌ /delprem", "🔧 /mode"],
+    ["👥 /onlygb", "🛑 /stopcmd"],
+    ["▶️ /runcmd", "🔄 /fullupdate"],
+    ["📡 /cekupdate", "➕ /addfunccmd"],
+    ["⚙️ /updatecmd", "◀️ Kembali ke Menu"]
+  ];
+  
+  let emoji;
+  if (step === 1) {
+    const style = step1Styles[step1Index % step1Styles.length];
+    return {
+      reply_markup: {
+        inline_keyboard: buttons.map(row => 
+          row.map(btn => {
+            if (btn === "◀️ Kembali ke Menu") {
+              return { text: btn, callback_data: "back_to_main" };
+            }
+            return { text: btn, callback_data: `cmd_${btn.replace(/[^a-zA-Z]/g, '')}` };
+          }).filter(Boolean)
+        )
+      }
+    };
+  } else if (step === 2) {
+    emoji = step2Emojis[subStep % step2Emojis.length];
+  } else {
+    emoji = step3Emojis[subStep % step3Emojis.length];
+  }
+  
+  return {
+    reply_markup: {
+      inline_keyboard: buttons.map(row => 
+        row.map(btn => {
+          if (btn === "◀️ Kembali ke Menu") {
+            return { text: `${emoji} ${btn}`, callback_data: "back_to_main" };
+          }
+          const cleanBtn = btn.replace(/[^a-zA-Z]/g, '');
+          return { text: `${emoji} ${btn}`, callback_data: `cmd_${cleanBtn}` };
+        }).filter(Boolean)
+      )
+    }
+  };
+}
+
+let currentMenuType = "main";
+let currentSubStep = 0;
+
+async function startDiscoMenu(chatId, messageId, menuType = "main") {
   if (activeMenuInterval) {
     clearInterval(activeMenuInterval);
     activeMenuInterval = null;
@@ -1351,37 +1415,29 @@ async function startDiscoMenu(chatId, messageId, isMainMenu = true, currentButto
   
   activeMenuChatId = chatId;
   activeMenuMessageId = messageId;
-  
-  let step = discoStep;
-  let intervalCount = 0;
-  let currentStyle = "emoji";
+  currentMenuType = menuType;
+  currentSubStep = 0;
+  stepStartTime = Date.now();
+  currentStep = 1;
+  step1Index = 0;
   
   activeMenuInterval = setInterval(async () => {
     try {
-      step++;
-      intervalCount++;
-      
-      if (intervalCount >= 40 && currentStyle === "emoji") {
-        currentStyle = "color";
-        intervalCount = 0;
-      } else if (intervalCount >= 40 && currentStyle === "color") {
-        currentStyle = "emoji";
-        intervalCount = 0;
-      }
+      currentSubStep++;
       
       let keyboard;
-      if (isMainMenu) {
-        keyboard = getMainDiscoKeyboard(step);
+      if (currentMenuType === "main") {
+        keyboard = getMainKeyboard(currentStep, currentSubStep);
+      } else if (currentMenuType === "bug") {
+        keyboard = getBugMenuKeyboard(currentStep, currentSubStep);
       } else {
-        keyboard = getDiscoKeyboard(currentButtons, step);
+        keyboard = getOwnerMenuKeyboard(currentStep, currentSubStep);
       }
       
       await bot.editMessageReplyMarkup(keyboard.reply_markup, {
         chat_id: chatId,
         message_id: messageId
       });
-      
-      await sleep(2500);
       
     } catch (err) {
       if (err.response?.body?.error_code !== 400) {
@@ -1427,14 +1483,14 @@ bot.onText(/\/start/, async (msg) => {
   
   const sentMsg = await bot.sendMessage(chatId, menuText, {
     parse_mode: "HTML",
-    ...getMainDiscoKeyboard(0)
+    ...getMainKeyboard(1, 0)
   });
   
   if (activeMenuInterval) {
     stopDiscoMenu();
   }
   
-  startDiscoMenu(chatId, sentMsg.message_id, true);
+  startDiscoMenu(chatId, sentMsg.message_id, "main");
 });
 
 // Action handlers untuk menu
@@ -1467,7 +1523,7 @@ bot.on("callback_query", async (callbackQuery) => {
         parse_mode: "Markdown"
       });
       
-      startDiscoMenu(chatId, messageId, false, bugMenuButtons, 0);
+      startDiscoMenu(chatId, messageId, "bug");
       
       await bot.answerCallbackQuery(callbackQuery.id);
     } catch (err) {}
@@ -1501,7 +1557,7 @@ bot.on("callback_query", async (callbackQuery) => {
         parse_mode: "Markdown"
       });
       
-      startDiscoMenu(chatId, messageId, false, ownerMenuButtons, 0);
+      startDiscoMenu(chatId, messageId, "owner");
       
       await bot.answerCallbackQuery(callbackQuery.id);
     } catch (err) {}
@@ -1525,15 +1581,37 @@ bot.on("callback_query", async (callbackQuery) => {
         parse_mode: "HTML"
       });
       
-      startDiscoMenu(chatId, messageId, true, null, 0);
+      startDiscoMenu(chatId, messageId, "main");
       
       await bot.answerCallbackQuery(callbackQuery.id);
     } catch (err) {}
     
   } else if (action.startsWith("cmd_")) {
     const cmd = action.replace("cmd_", "");
+    let cmdName = "";
+    
+    if (cmd === "sanjiva") cmdName = "sanjiva";
+    else if (cmd === "sanjixa") cmdName = "sanjixa";
+    else if (cmd === "xfrozen") cmdName = "xfrozen";
+    else if (cmd === "stunt") cmdName = "stunt";
+    else if (cmd === "stuck") cmdName = "stuck";
+    else if (cmd === "streak") cmdName = "streak";
+    else if (cmd === "addbot") cmdName = "addbot";
+    else if (cmd === "addowner") cmdName = "addowner";
+    else if (cmd === "addprem") cmdName = "addprem";
+    else if (cmd === "delowner") cmdName = "delowner";
+    else if (cmd === "delprem") cmdName = "delprem";
+    else if (cmd === "mode") cmdName = "mode";
+    else if (cmd === "onlygb") cmdName = "onlygb";
+    else if (cmd === "stopcmd") cmdName = "stopcmd";
+    else if (cmd === "runcmd") cmdName = "runcmd";
+    else if (cmd === "fullupdate") cmdName = "fullupdate";
+    else if (cmd === "cekupdate") cmdName = "cekupdate";
+    else if (cmd === "addfunccmd") cmdName = "addfunccmd";
+    else if (cmd === "updatecmd") cmdName = "updatecmd";
+    
     await bot.answerCallbackQuery(callbackQuery.id, {
-      text: `Command /${cmd} - Ketik manual untuk penggunaan`,
+      text: `Command /${cmdName} - Ketik manual dengan nomor target`,
       show_alert: false
     });
   }
@@ -1985,14 +2063,14 @@ bot.onText(/\/menu/, async (msg) => {
   
   const sentMsg = await bot.sendMessage(chatId, menuText, {
     parse_mode: "HTML",
-    ...getMainDiscoKeyboard(0)
+    ...getMainKeyboard(1, 0)
   });
   
   if (activeMenuInterval) {
     stopDiscoMenu();
   }
   
-  startDiscoMenu(chatId, sentMsg.message_id, true);
+  startDiscoMenu(chatId, sentMsg.message_id, "main");
 });
 
 const mainMenuButtonsForMenu = {
