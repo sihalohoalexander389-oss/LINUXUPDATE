@@ -1115,7 +1115,6 @@ let activeMenuMessageId = null;
 let activeMenuChatId = null;
 let currentDiscoIndex = 0;
 const styles = ["primary", "success", "danger"];
-const styleNames = ["🔵 PRIMARY", "🟢 SUCCESS", "🔴 DANGER"];
 
 // Emoji untuk step 2 (setelah 10 detik)
 const step2Emojis = ["🔴","🟥","❤️","🟠","🟧","🧡","🟡","🟨","💛","🟢","🟩","💚","🔵","🟦","💙","🟣","🟪","💜","🟤","🟫","⚫","⬛","⚪","⬜","🤍","🤎","🖤","🩷","🩵","🩶"];
@@ -1145,18 +1144,6 @@ function getMainKeyboard() {
           [
             { text: `🎌 バグメニュー 🦠🇯🇵`, callback_data: "bugmenu", style: style },
             { text: `🎌 オーナーメニュー 🔒🇯🇵`, callback_data: "ownermenu", style: style }
-          ],
-          [
-            { text: `🎌 XBUGS`, callback_data: "trashmenu", style: style },
-            { text: `🎌 XTOOLSBUG`, callback_data: "toolsbug_menu", style: style }
-          ],
-          [
-            { text: `🎌 XSETTINGS`, callback_data: "owner_menu", style: style },
-            { text: `🎌 XGROUPSECURITY`, callback_data: "group_security_menu", style: style }
-          ],
-          [
-            { text: `🎌 XCHANGECOLOR`, callback_data: "change_color_menu", style: style },
-            { text: `🎌 DEVELOPERS`, url: "https://t.me/ItsMeXanderRzMd", style: style }
           ]
         ]
       }
@@ -1179,18 +1166,6 @@ function getMainKeyboard() {
           [
             { text: `${emoji} バグメニュー 🦠🇯🇵`, callback_data: "bugmenu" },
             { text: `${emoji} オーナーメニュー 🔒🇯🇵`, callback_data: "ownermenu" }
-          ],
-          [
-            { text: `${emoji} XBUGS`, callback_data: "trashmenu" },
-            { text: `${emoji} XTOOLSBUG`, callback_data: "toolsbug_menu" }
-          ],
-          [
-            { text: `${emoji} XSETTINGS`, callback_data: "owner_menu" },
-            { text: `${emoji} XGROUPSECURITY`, callback_data: "group_security_menu" }
-          ],
-          [
-            { text: `${emoji} XCHANGECOLOR`, callback_data: "change_color_menu" },
-            { text: `${emoji} DEVELOPERS`, url: "https://t.me/ItsMeXanderRzMd" }
           ]
         ]
       }
@@ -1213,18 +1188,6 @@ function getMainKeyboard() {
           [
             { text: `${emoji} バグメニュー 🦠🇯🇵`, callback_data: "bugmenu" },
             { text: `${emoji} オーナーメニュー 🔒🇯🇵`, callback_data: "ownermenu" }
-          ],
-          [
-            { text: `${emoji} XBUGS`, callback_data: "trashmenu" },
-            { text: `${emoji} XTOOLSBUG`, callback_data: "toolsbug_menu" }
-          ],
-          [
-            { text: `${emoji} XSETTINGS`, callback_data: "owner_menu" },
-            { text: `${emoji} XGROUPSECURITY`, callback_data: "group_security_menu" }
-          ],
-          [
-            { text: `${emoji} XCHANGECOLOR`, callback_data: "change_color_menu" },
-            { text: `${emoji} DEVELOPERS`, url: "https://t.me/ItsMeXanderRzMd" }
           ]
         ]
       }
@@ -1492,12 +1455,6 @@ bot.on("callback_query", async (callbackQuery) => {
     const cmd = action.replace("cmd_", "");
     await bot.answerCallbackQuery(callbackQuery.id, {
       text: `Command /${cmd} - Ketik manual dengan nomor target`,
-      show_alert: false
-    });
-  } else if (action === "trashmenu" || action === "owner_menu" || action === "group_security_menu" || action === "toolsbug_menu" || action === "change_color_menu") {
-    // Handle submenu lainnya
-    await bot.answerCallbackQuery(callbackQuery.id, {
-      text: `Menu ${action} - Gunakan command yang tersedia`,
       show_alert: false
     });
   }
