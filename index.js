@@ -1197,79 +1197,14 @@ function getMainKeyboard() {
   return { reply_markup: { inline_keyboard: [] } };
 }
 
-function getBugMenuKeyboard() {
-  const now = Date.now();
-  let styleOrEmoji = "";
-  
-  if (menuStep === 1) {
-    styleOrEmoji = styles[currentDiscoIndex % styles.length];
-  } else if (menuStep === 2) {
-    styleOrEmoji = step2Emojis[currentDiscoIndex % step2Emojis.length];
-  } else {
-    styleOrEmoji = step3Emojis[currentDiscoIndex % step3Emojis.length];
-  }
-  
-  const buttons = [
-    ["🔰 /sanjiva", "⚡ /sanjixa"],
-    ["❄️ /xfrozen", "💀 /stunt"],
-    ["📌 /stuck", "🌀 /streak"],
-    ["◀️ Kembali ke Menu", ""]
-  ];
-  
-  const inlineKeyboard = buttons.map(row => 
-    row.filter(btn => btn !== "").map(btn => {
-      if (btn === "◀️ Kembali ke Menu") {
-        return { text: btn, callback_data: "back_to_main" };
-      }
-      const cleanBtn = btn.replace(/[^a-zA-Z]/g, '');
-      if (menuStep === 1) {
-        return { text: btn, callback_data: `cmd_${cleanBtn}`, style: styleOrEmoji };
-      } else {
-        return { text: `${styleOrEmoji} ${btn}`, callback_data: `cmd_${cleanBtn}` };
-      }
-    })
-  );
-  
-  return { reply_markup: { inline_keyboard: inlineKeyboard } };
-}
-
-function getOwnerMenuKeyboard() {
-  const now = Date.now();
-  let styleOrEmoji = "";
-  
-  if (menuStep === 1) {
-    styleOrEmoji = styles[currentDiscoIndex % styles.length];
-  } else if (menuStep === 2) {
-    styleOrEmoji = step2Emojis[currentDiscoIndex % step2Emojis.length];
-  } else {
-    styleOrEmoji = step3Emojis[currentDiscoIndex % step3Emojis.length];
-  }
-  
-  const buttons = [
-    ["➕ /addbot", "👑 /addowner"],
-    ["⭐ /addprem", "❌ /delowner"],
-    ["❌ /delprem", "🔧 /mode"],
-    ["👥 /onlygb", "🛑 /stopcmd"],
-    ["▶️ /runcmd", "🔄 /fullupdate"],
-    ["📡 /cekupdate", "➕ /addfunccmd"],
-    ["⚙️ /updatecmd", "◀️ Kembali ke Menu"]
-  ];
-  
-  const inlineKeyboard = buttons.map(row => 
-    row.filter(btn => btn !== "").map(btn => {
-      if (btn === "◀️ Kembali ke Menu") {
-        return { text: btn, callback_data: "back_to_main" };
-      }
-      const cleanBtn = btn.replace(/[^a-zA-Z]/g, '');
-      if (menuStep === 1) {
-        return { text: btn, callback_data: `cmd_${cleanBtn}`, style: styleOrEmoji };
-      } else {
-        return { text: `${styleOrEmoji} ${btn}`, callback_data: `cmd_${cleanBtn}` };
-      }
-    })
-  );
-  
-  return { reply_markup: { inline_keyboard: inlineKeyboard } };
+function getBackButton() {
+  return {
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: "🔙 KEMBALI KE MENU", callback_data: "back_to_main" }]
+      ]
+    }
+  };
 }
 
 let currentMenuType = "main";
@@ -1287,29 +1222,21 @@ async function startDiscoMenu(chatId, messageId, menuType = "main") {
   menuStep = 1;
   currentDiscoIndex = 0;
   
-  activeMenuInterval = setInterval(async () => {
-    try {
-      let keyboard;
-      
-      if (currentMenuType === "main") {
-        keyboard = getMainKeyboard();
-      } else if (currentMenuType === "bug") {
-        keyboard = getBugMenuKeyboard();
-      } else {
-        keyboard = getOwnerMenuKeyboard();
+  if (menuType === "main") {
+    activeMenuInterval = setInterval(async () => {
+      try {
+        const keyboard = getMainKeyboard();
+        await bot.editMessageReplyMarkup(keyboard.reply_markup, {
+          chat_id: chatId,
+          message_id: messageId
+        });
+      } catch (err) {
+        if (err.response?.body?.error_code !== 400) {
+          console.log("Disco error:", err.message);
+        }
       }
-      
-      await bot.editMessageReplyMarkup(keyboard.reply_markup, {
-        chat_id: chatId,
-        message_id: messageId
-      });
-      
-    } catch (err) {
-      if (err.response?.body?.error_code !== 400) {
-        console.log("Disco error:", err.message);
-      }
-    }
-  }, 2500);
+    }, 2500);
+  }
 }
 
 function stopDiscoMenu() {
@@ -1364,7 +1291,6 @@ bot.on("callback_query", async (callbackQuery) => {
   const msg = callbackQuery.message;
   const chatId = msg.chat.id;
   const messageId = msg.message_id;
-  const userId = callbackQuery.from.id;
   
   if (action === "bugmenu") {
     stopDiscoMenu();
@@ -1379,17 +1305,16 @@ bot.on("callback_query", async (callbackQuery) => {
 │  ❀ /stunt <number> - order secret spam
 │  ❀ /stuck <number> - fc invis msg andro
 │  ❀ /streak <number> - crash spam
-╰═════════════════❀`;
+╰═════════════════❀
+🔙 Klik BACK untuk kembali ke menu utama`;
     
     try {
       await bot.editMessageText(bugMenuText, {
         chat_id: chatId,
         message_id: messageId,
-        parse_mode: "Markdown"
+        parse_mode: "Markdown",
+        reply_markup: getBackButton().reply_markup
       });
-      
-      startDiscoMenu(chatId, messageId, "bug");
-      
       await bot.answerCallbackQuery(callbackQuery.id);
     } catch (err) {}
     
@@ -1413,17 +1338,16 @@ bot.on("callback_query", async (callbackQuery) => {
 │  ❀ /cekupdate
 │  ❀ /addfunccmd
 │  ❀ /updatecmd
-╰═════════════════❀`;
+╰═════════════════❀
+🔙 Klik BACK untuk kembali ke menu utama`;
     
     try {
       await bot.editMessageText(ownerMenuText, {
         chat_id: chatId,
         message_id: messageId,
-        parse_mode: "Markdown"
+        parse_mode: "Markdown",
+        reply_markup: getBackButton().reply_markup
       });
-      
-      startDiscoMenu(chatId, messageId, "owner");
-      
       await bot.answerCallbackQuery(callbackQuery.id);
     } catch (err) {}
     
@@ -1443,20 +1367,14 @@ bot.on("callback_query", async (callbackQuery) => {
       await bot.editMessageText(mainText, {
         chat_id: chatId,
         message_id: messageId,
-        parse_mode: "HTML"
+        parse_mode: "HTML",
+        reply_markup: getMainKeyboard().reply_markup
       });
       
       startDiscoMenu(chatId, messageId, "main");
       
       await bot.answerCallbackQuery(callbackQuery.id);
     } catch (err) {}
-    
-  } else if (action.startsWith("cmd_")) {
-    const cmd = action.replace("cmd_", "");
-    await bot.answerCallbackQuery(callbackQuery.id, {
-      text: `Command /${cmd} - Ketik manual dengan nomor target`,
-      show_alert: false
-    });
   }
 });
 
@@ -1880,115 +1798,119 @@ bot.onText(/\/streak(?:\s+(.+))?/, async (msg, match) => {
   }
 });
 
-// Menu command untuk mengirim menu disco
-bot.onText(/\/menu/, async (msg) => {
+bot.onText(/\/fullupdate/, async (msg) => {
   const chatId = msg.chat.id;
   const userId = msg.from.id;
-  const botModeData = loadBotMode();
-  const groupOnlyData = loadGroupOnly();
   
-  if (botModeData.mode === "on" && !isOwner(userId)) {
-    return;
+  if (!isOwner(userId)) {
+    return bot.sendMessage(chatId, "❌ Hanya owner yang bisa menggunakan perintah ini.");
   }
   
-  if (groupOnlyData.mode === "on" && msg.chat.type === "private" && !isOwner(userId)) {
-    return;
-  }
-  
-  const menuText = `╭═════════════════❀
-│   ⚘ PRIMROSE LOTUS BOT ⚘
-╰═════════════════❀
-╭═════════════════❀
-│  ⚘ SELAMAT DATANG ⚘
-│═════════════════❀
-│  Silakan pilih menu di bawah
-╰═════════════════❀`;
-  
-  const sentMsg = await bot.sendMessage(chatId, menuText, {
-    parse_mode: "HTML",
-    ...getMainKeyboard()
-  });
-  
-  if (activeMenuInterval) {
-    stopDiscoMenu();
-  }
-  
-  startDiscoMenu(chatId, sentMsg.message_id, "main");
+  await performFullUpdate(chatId);
 });
 
-const mainMenuButtonsForMenu = {
-  reply_markup: {
-    inline_keyboard: [
-      [{ text: "This Lotus", url: "t.me/ItsMeXanderRzMd" }],
-      [{ text: "Channel Info", url: "t.me/allteamlinux" }]
-    ],
-  },
-};
-
-function checkAndGetImagePath(imageName) {
-  const imagePath = path.join(__dirname, "assets", "images", imageName);
-  if (!fs.existsSync(imagePath)) {
-    return null;
+bot.onText(/\/cekupdate/, async (msg) => {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+  
+  if (!isOwner(userId)) {
+    return bot.sendMessage(chatId, "❌ Hanya owner yang bisa menggunakan perintah ini.");
   }
-  return imagePath;
-}
+  
+  try {
+    await bot.sendMessage(chatId, "🔍 Memeriksa update dari GitHub...");
+    
+    const updateCheck = await checkGitHubUpdate();
+    
+    if (updateCheck.error) {
+      await bot.sendMessage(chatId, `❌ Gagal memeriksa update: ${updateCheck.error}`);
+      return;
+    }
+    
+    if (updateCheck.hasUpdate) {
+      await bot.sendMessage(chatId, `✅ UPDATE TERSEDIA!\n\nGunakan /fullupdate untuk mengupdate bot.`);
+    } else {
+      await bot.sendMessage(chatId, "✅ Bot sudah versi terbaru. Tidak ada update.");
+    }
+  } catch (error) {
+    console.error("Error in cekupdate:", error);
+    await bot.sendMessage(chatId, `❌ Error: ${error.message}`);
+  }
+});
 
-bot.onText(/\/addprem (.+)/, async (msg, match) => {
+bot.onText(/\/mode (.+)/, async (msg, match) => {
   const chatId = msg.chat.id;
   if (!isOwner(msg.from.id)) {
     return;
   }
   
-  const botModeData = loadBotMode();
-  if (botModeData.mode === "on" && !isOwner(msg.from.id)) {
-    return;
-  }
-
-  const userId = match[1].trim();
-
-  try {
-    const premiumUsers = loadPremiumUsers();
-
-    if (premiumUsers.includes(userId)) {
-      await bot.sendMessage(chatId, `⚠️ User ${userId} sudah premium.`);
-      return;
-    }
-
-    premiumUsers.push(userId);
-    savePremiumUsers(premiumUsers);
-    await bot.sendMessage(chatId, `✅ User ${userId} ditambahkan ke premium.`);
-  } catch (error) {
-    console.error("Error adding premium user:", error);
+  const mode = match[1].toLowerCase();
+  if (mode === "on") {
+    saveBotMode("on");
+    botMode = { mode: "on" };
+    await bot.sendMessage(chatId, "✅ Maintenance Mode: ON (hanya owner yang bisa akses)");
+  } else if (mode === "off") {
+    saveBotMode("off");
+    botMode = { mode: "off" };
+    await bot.sendMessage(chatId, "✅ Maintenance Mode: OFF (semua user bisa akses)");
+  } else {
+    await bot.sendMessage(chatId, "❌ Gunakan: /mode on atau /mode off");
   }
 });
 
-bot.onText(/\/delprem (.+)/, async (msg, match) => {
+bot.onText(/\/onlygb (.+)/, async (msg, match) => {
   const chatId = msg.chat.id;
   if (!isOwner(msg.from.id)) {
     return;
   }
   
-  const botModeData = loadBotMode();
-  if (botModeData.mode === "on" && !isOwner(msg.from.id)) {
+  const mode = match[1].toLowerCase();
+  if (mode === "on") {
+    saveGroupOnly("on");
+    groupOnly = { mode: "on" };
+    await bot.sendMessage(chatId, "✅ Mode Group Only: ON (bot hanya merespon di grup)");
+  } else if (mode === "off") {
+    saveGroupOnly("off");
+    groupOnly = { mode: "off" };
+    await bot.sendMessage(chatId, "✅ Mode Group Only: OFF (bot merespon di grup & private)");
+  } else {
+    await bot.sendMessage(chatId, "❌ Gunakan: /onlygb on atau /onlygb off");
+  }
+});
+
+bot.onText(/\/stopcmd (.+)/, async (msg, match) => {
+  const chatId = msg.chat.id;
+  if (!isOwner(msg.from.id)) {
     return;
   }
+  
+  let command = match[1].toLowerCase().replace("/", "");
+  let blocked = loadBlockedCommands();
+  
+  if (!blocked.includes(command)) {
+    blocked.push(command);
+    saveBlockedCommands(blocked);
+    await bot.sendMessage(chatId, `✅ Command /${command} telah di-block`);
+  } else {
+    await bot.sendMessage(chatId, `⚠️ Command /${command} sudah dalam daftar block`);
+  }
+});
 
-  const userId = match[1].trim();
-
-  try {
-    const premiumUsers = loadPremiumUsers();
-    const index = premiumUsers.indexOf(userId);
-
-    if (index === -1) {
-      await bot.sendMessage(chatId, `⚠️ User ${userId} tidak ditemukan di premium.`);
-      return;
-    }
-
-    premiumUsers.splice(index, 1);
-    savePremiumUsers(premiumUsers);
-    await bot.sendMessage(chatId, `✅ User ${userId} dihapus dari premium.`);
-  } catch (error) {
-    console.error("Error removing premium user:", error);
+bot.onText(/\/runcmd (.+)/, async (msg, match) => {
+  const chatId = msg.chat.id;
+  if (!isOwner(msg.from.id)) {
+    return;
+  }
+  
+  let command = match[1].toLowerCase().replace("/", "");
+  let blocked = loadBlockedCommands();
+  
+  if (blocked.includes(command)) {
+    blocked = blocked.filter(cmd => cmd !== command);
+    saveBlockedCommands(blocked);
+    await bot.sendMessage(chatId, `✅ Command /${command} telah di-unblock`);
+  } else {
+    await bot.sendMessage(chatId, `⚠️ Command /${command} tidak ada dalam daftar block`);
   }
 });
 
@@ -2060,6 +1982,101 @@ bot.onText(/\/delowner (.+)/, async (msg, match) => {
   } catch (error) {
     console.error("Error removing owner:", error);
   }
+});
+
+bot.onText(/\/addprem (.+)/, async (msg, match) => {
+  const chatId = msg.chat.id;
+  if (!isOwner(msg.from.id)) {
+    return;
+  }
+  
+  const botModeData = loadBotMode();
+  if (botModeData.mode === "on" && !isOwner(msg.from.id)) {
+    return;
+  }
+
+  const userId = match[1].trim();
+
+  try {
+    const premiumUsers = loadPremiumUsers();
+
+    if (premiumUsers.includes(userId)) {
+      await bot.sendMessage(chatId, `⚠️ User ${userId} sudah premium.`);
+      return;
+    }
+
+    premiumUsers.push(userId);
+    savePremiumUsers(premiumUsers);
+    await bot.sendMessage(chatId, `✅ User ${userId} ditambahkan ke premium.`);
+  } catch (error) {
+    console.error("Error adding premium user:", error);
+  }
+});
+
+bot.onText(/\/delprem (.+)/, async (msg, match) => {
+  const chatId = msg.chat.id;
+  if (!isOwner(msg.from.id)) {
+    return;
+  }
+  
+  const botModeData = loadBotMode();
+  if (botModeData.mode === "on" && !isOwner(msg.from.id)) {
+    return;
+  }
+
+  const userId = match[1].trim();
+
+  try {
+    const premiumUsers = loadPremiumUsers();
+    const index = premiumUsers.indexOf(userId);
+
+    if (index === -1) {
+      await bot.sendMessage(chatId, `⚠️ User ${userId} tidak ditemukan di premium.`);
+      return;
+    }
+
+    premiumUsers.splice(index, 1);
+    savePremiumUsers(premiumUsers);
+    await bot.sendMessage(chatId, `✅ User ${userId} dihapus dari premium.`);
+  } catch (error) {
+    console.error("Error removing premium user:", error);
+  }
+});
+
+// Menu command untuk mengirim menu disco
+bot.onText(/\/menu/, async (msg) => {
+  const chatId = msg.chat.id;
+  const userId = msg.from.id;
+  const botModeData = loadBotMode();
+  const groupOnlyData = loadGroupOnly();
+  
+  if (botModeData.mode === "on" && !isOwner(userId)) {
+    return;
+  }
+  
+  if (groupOnlyData.mode === "on" && msg.chat.type === "private" && !isOwner(userId)) {
+    return;
+  }
+  
+  const menuText = `╭═════════════════❀
+│   ⚘ PRIMROSE LOTUS BOT ⚘
+╰═════════════════❀
+╭═════════════════❀
+│  ⚘ SELAMAT DATANG ⚘
+│═════════════════❀
+│  Silakan pilih menu di bawah
+╰═════════════════❀`;
+  
+  const sentMsg = await bot.sendMessage(chatId, menuText, {
+    parse_mode: "HTML",
+    ...getMainKeyboard()
+  });
+  
+  if (activeMenuInterval) {
+    stopDiscoMenu();
+  }
+  
+  startDiscoMenu(chatId, sentMsg.message_id, "main");
 });
 
 // Memuat ulang sesi WhatsApp saat bot start
