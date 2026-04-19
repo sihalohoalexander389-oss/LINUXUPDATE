@@ -1132,7 +1132,7 @@ function getMainKeyboard() {
     const style = styles[currentDiscoIndex % styles.length];
     currentDiscoIndex++;
     
-    if (now - stepStartTime >= 20000) {
+    if (now - stepStartTime >= 10000) {
       menuStep = 2;
       stepStartTime = now;
       currentDiscoIndex = 0;
@@ -1154,7 +1154,7 @@ function getMainKeyboard() {
     const emoji = step2Emojis[currentDiscoIndex % step2Emojis.length];
     currentDiscoIndex++;
     
-    if (now - stepStartTime >= 20000) {
+    if (now - stepStartTime >= 10000) {
       menuStep = 3;
       stepStartTime = now;
       currentDiscoIndex = 0;
@@ -1176,7 +1176,7 @@ function getMainKeyboard() {
     const emoji = step3Emojis[currentDiscoIndex % step3Emojis.length];
     currentDiscoIndex++;
     
-    if (now - stepStartTime >= 20000) {
+    if (now - stepStartTime >= 10000) {
       menuStep = 1;
       stepStartTime = now;
       currentDiscoIndex = 0;
